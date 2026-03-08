@@ -1,8 +1,8 @@
 # Too Many Cooks
 
-Multi-agent coordination MCP server. Enables multiple AI agents to safely edit a codebase simultaneously with file locking, messaging, and shared plans.
+Multi-agent coordination MCP server. Enables multiple AI agents to safely edit a codebase simultaneously with file locking, messaging, shared plans, and real-time push notifications.
 
-Built with Dart, compiled to Node.js. Uses [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport so all agents connect to one shared server and receive real-time push notifications. Made with [dart_node](https://www.dartnode.org).
+Uses [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport so all agents connect to one shared server and receive real-time state changes. No polling. Built with Dart, compiled to Node.js via [dart_node](https://www.dartnode.org).
 
 ## Install
 
@@ -10,21 +10,31 @@ Built with Dart, compiled to Node.js. Uses [MCP Streamable HTTP](https://modelco
 npm install -g too-many-cooks
 ```
 
-## Quick Start
-
-Start the server:
+## Start the Server
 
 ```bash
 too-many-cooks
 ```
 
-The server listens on `http://localhost:4040` by default. The MCP endpoint is at `/mcp`.
+The server starts on **port 4040** and exposes:
+- `http://localhost:4040/mcp` - MCP Streamable HTTP endpoint (for agents)
+- `http://localhost:4040/admin/*` - Admin REST + event stream (for the VSCode extension)
 
-Set `TMC_WORKSPACE` to target a specific workspace folder (defaults to `process.cwd()`).
+Set `TMC_WORKSPACE` to target a specific workspace folder (defaults to `process.cwd()`):
 
-## Client Configuration
+```bash
+TMC_WORKSPACE=/path/to/your/project too-many-cooks
+```
 
-Too Many Cooks uses **Streamable HTTP** transport. All agents connect to the same running server over HTTP so they can see each other's state and receive real-time notifications. This is different from stdio-based MCP servers where each agent gets an isolated process.
+Or with npx (no global install):
+
+```bash
+npx too-many-cooks
+```
+
+## Configure Your AI Agent
+
+Too Many Cooks uses **Streamable HTTP** transport, not stdio. All agents connect to the same running server over HTTP so they can see each other's locks, messages, and plans in real-time. Start the server first, then point your agent at it.
 
 ### Claude Code
 
@@ -34,7 +44,7 @@ claude mcp add --transport http too-many-cooks http://localhost:4040/mcp
 
 ### Cursor
 
-Add to `.cursor/mcp.json`:
+Add to `.cursor/mcp.json` in your project root:
 
 ```json
 {
@@ -48,7 +58,7 @@ Add to `.cursor/mcp.json`:
 
 ### Cline
 
-Add to Cline MCP settings:
+In VS Code, open **Cline MCP Settings** and add:
 
 ```json
 {
@@ -66,23 +76,36 @@ Add to Cline MCP settings:
 codex --mcp-server http://localhost:4040/mcp
 ```
 
-### Generic MCP Client
+### Any MCP Client
 
-Any MCP client that supports Streamable HTTP can connect:
+Any client that supports [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) can connect:
 
 ```
-URL: http://localhost:4040/mcp
+Endpoint: http://localhost:4040/mcp
 Transport: Streamable HTTP
 ```
+
+## VSCode Extension
+
+The companion [Too Many Cooks VSCode extension](https://github.com/MelbourneDeveloper/too_many_cooks) provides a live dashboard showing agents, file locks, and messages. It connects to the same server on port 4040 automatically.
+
+## Features
+
+- **File Locking** - advisory locks prevent agents from editing the same files
+- **Agent Identity** - secure registration with API keys
+- **Messaging** - inter-agent communication with broadcast support
+- **Plan Visibility** - share goals and current tasks across agents
+- **Real-time Notifications** - server pushes state changes to all connected agents via Streamable HTTP
+- **Written in Dart** - compiled to Node.js via [dart_node](https://www.dartnode.org)
 
 ## MCP Tools
 
 ### `register`
 
-Register a new agent or reconnect. Returns a secret key on first call - store it!
+Register a new agent or reconnect an existing one. Returns a secret key on first call - store it!
 
 - **New agent**: `{ name: "my-agent" }` - returns `{ agent_name, agent_key }`
-- **Reconnect**: `{ key: "your-stored-key" }` - resumes session
+- **Reconnect**: `{ key: "your-stored-key" }` - resumes session with existing identity
 
 ### `lock`
 
@@ -99,7 +122,7 @@ Advisory file locks to prevent conflicting edits.
 
 ### `message`
 
-Inter-agent communication. Use `*` as `to_agent` to broadcast.
+Inter-agent communication. Use `*` as `to_agent` to broadcast to all agents.
 
 | Action | Description |
 |--------|-------------|
@@ -109,7 +132,7 @@ Inter-agent communication. Use `*` as `to_agent` to broadcast.
 
 ### `plan`
 
-Share what you're working on so other agents can see.
+Share what you're working on so other agents can coordinate.
 
 | Action | Description |
 |--------|-------------|
@@ -123,14 +146,14 @@ System overview of all agents, locks, plans, and recent messages. No authenticat
 
 ## Real-Time Notifications
 
-The server pushes events to all connected agents via MCP Streamable HTTP. Agents receive notifications in real-time when:
+The server pushes events to all connected agents automatically via Streamable HTTP. Agents receive notifications when:
 
 - An agent registers or disconnects
 - A file lock is acquired, released, or renewed
 - A message is sent
 - A plan is updated
 
-No polling required. The server pushes state changes to every connected client automatically.
+No polling. The server pushes to every connected client in real-time.
 
 ## Example CLAUDE.md Rules
 
@@ -145,7 +168,7 @@ No polling required. The server pushes state changes to every connected client a
 
 ## Architecture
 
-Single HTTP server per workspace. All agents connect over HTTP to the same process, enabling real-time coordination.
+Single HTTP server per workspace. All agents connect over Streamable HTTP to the same process.
 
 ```
 +-----------------+     +-----------------+     +-----------------+
@@ -158,6 +181,9 @@ Single HTTP server per workspace. All agents connect over HTTP to the same proce
                   +--------------------------+
                   |   Too Many Cooks Server  |
                   |  http://localhost:4040    |
+                  |                          |
+                  |  /mcp    - agent endpoint|
+                  |  /admin  - VSIX endpoint |
                   +------------+-------------+
                                |
                                v
