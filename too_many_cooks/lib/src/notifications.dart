@@ -1,12 +1,18 @@
 /// Notification system for push-based updates.
 ///
-/// All events are pushed automatically to every connected client (agents +
-/// VSIX). There is no subscribe tool — subscriptions are managed entirely by
-/// the server based on connection state.
+/// All events are pushed automatically to every connected client
+/// (agents + VSIX). There is no subscribe tool — subscriptions
+/// are managed entirely by the server based on connection state.
+///
+/// Agents receive notifications via MCP logging messages on their
+/// Streamable HTTP session. This is CRITICAL — agents must know
+/// about new messages, lock changes, and agent status in
+/// real-time without polling.
 library;
 
 import 'dart:async';
 
+import 'package:dart_node_core/dart_node_core.dart';
 import 'package:dart_node_mcp/dart_node_mcp.dart';
 
 /// Event type for agent registration.
@@ -33,39 +39,97 @@ const eventMessageSent = 'message_sent';
 /// Event type for plan update.
 const eventPlanUpdated = 'plan_updated';
 
-/// Callback type for pushing events to the admin hub.
-typedef AdminPushFn =
+/// Logger name for agent notifications.
+const agentLoggerName = 'too-many-cooks';
+
+/// Callback type for pushing events.
+typedef EventPushFn =
     void Function(String event, Map<String, Object?> payload);
 
-/// Notification emitter - broadcasts events to all connected clients via MCP
-/// logging. No subscriber management — events push automatically.
+/// Agent event hub — tracks all connected agent McpServer
+/// instances and pushes notifications to them in real-time.
+typedef AgentEventHub = ({
+  Map<String, McpServer> servers,
+  void Function(String event, Map<String, Object?> payload)
+      pushEvent,
+});
+
+/// Create an agent event hub for pushing real-time
+/// notifications to all connected agents.
+AgentEventHub createAgentEventHub() {
+  final servers = <String, McpServer>{};
+
+  void pushEvent(
+    String event,
+    Map<String, Object?> payload,
+  ) {
+    consoleError(
+      '[TMC] [AGENT-PUSH] $event → '
+      '${servers.length} agent(s)',
+    );
+    final data = <String, Object?>{
+      'event': event,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'payload': payload,
+    };
+
+    for (final entry in [...servers.entries]) {
+      consoleError(
+        '[TMC] [AGENT-PUSH] Sending to ${entry.key}',
+      );
+      unawaited(
+        entry.value
+            .sendLoggingMessage((
+              level: 'info',
+              logger: agentLoggerName,
+              data: data,
+            ))
+            .then((_) {
+              consoleError(
+                '[TMC] [AGENT-PUSH] Sent OK to '
+                '${entry.key}',
+              );
+            }, onError: (Object e) {
+              consoleError(
+                '[TMC] [AGENT-PUSH] FAILED '
+                '${entry.key}: $e',
+              );
+              servers.remove(entry.key);
+            }),
+      );
+    }
+  }
+
+  return (servers: servers, pushEvent: pushEvent);
+}
+
+/// Notification emitter — broadcasts events to all connected
+/// clients via MCP logging. No subscriber management.
 typedef NotificationEmitter = ({
   void Function(String event, Map<String, Object?> payload) emit,
 });
 
-/// Create a notification emitter that uses the MCP server's logging
-/// and optionally also pushes to the admin event hub (for the VSIX).
+/// Create a notification emitter that pushes to both the
+/// agent event hub and the admin event hub.
+///
+/// Both pushes are deferred by 50ms so the tool-call HTTP
+/// response is flushed before the notification arrives on
+/// the same Streamable HTTP session.
 NotificationEmitter createNotificationEmitter(
   McpServer server, {
-  AdminPushFn? adminPush,
+  EventPushFn? adminPush,
+  EventPushFn? agentPush,
 }) {
   void emit(String event, Map<String, Object?> payload) {
     // Deferred to next event-loop tick so the tool-call HTTP
-    // response is flushed before the admin SSE push arrives.
-    // Without this, the push can beat the response and clients
-    // that track "new" events miss it.
-    //
-    // We intentionally do NOT call server.sendLoggingMessage()
-    // here. Injecting logging notifications into the MCP response
-    // stream races with concurrent tool-call responses on the same
-    // Streamable HTTP session, causing clients to parse a
-    // notification instead of their tool result.
-    final push = adminPush;
-    if (push != null) {
-      Timer(const Duration(milliseconds: 50), () {
-        push(event, payload);
-      });
-    }
+    // response is flushed before the push arrives.
+    // Without this, the push can beat the response and
+    // clients parse a notification instead of their tool
+    // result.
+    Timer(const Duration(milliseconds: 50), () {
+      adminPush?.call(event, payload);
+      agentPush?.call(event, payload);
+    });
   }
 
   return (emit: emit,);

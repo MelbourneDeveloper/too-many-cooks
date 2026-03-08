@@ -26,10 +26,7 @@ npm install
 npm run compile
 npm run compile:test
 
-# 5. Delete database
-rm -rf "$VSIX_DIR/.too_many_cooks"
-
-# 6. Start MCP server
+# 5. Start MCP server
 cleanup_mcp() { [ -n "${MCP_PID:-}" ] && kill "$MCP_PID" 2>/dev/null || true; }
 trap cleanup_mcp EXIT
 node "$ROOT/too_many_cooks/$SERVER_BINARY" &

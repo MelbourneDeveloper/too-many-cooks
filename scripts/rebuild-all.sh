@@ -9,12 +9,10 @@ VSIX_DIR="$ROOT/too_many_cooks_vscode_extension"
 SERVER_BINARY="build/bin/server_node.js"
 PORT=4040
 
-echo "=== Clean ==="
+echo "=== Clean build artifacts ==="
 rm -rf "$MCP_DIR/build"
-rm -rf "$MCP_DIR/.too_many_cooks"
 rm -rf "$VSIX_DIR/out"
-rm -rf "$VSIX_DIR/.too_many_cooks"
-echo "Cleaned build artifacts and databases"
+echo "Cleaned build artifacts (database preserved)"
 
 echo ""
 echo "=== Build MCP server (Dart → JS) ==="

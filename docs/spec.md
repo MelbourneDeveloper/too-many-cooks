@@ -92,6 +92,57 @@ System overview: agents, locks, plans, recent messages. No auth required.
 
 ---
 
+## Real-Time Agent Notifications (CRITICAL)
+
+**EVERY connected agent MUST receive real-time streamed notifications when state changes.** This is the entire point of the server. Agents do NOT poll — the server PUSHES events to them via MCP logging notifications over Streamable HTTP.
+
+### What agents receive in real-time
+
+When ANY of the following happen, the server IMMEDIATELY pushes an MCP `notifications/message` (logging notification) to EVERY connected agent's Streamable HTTP session:
+
+| Event | Trigger | Why agents need it |
+|-------|---------|-------------------|
+| `message_sent` | Any agent sends a message (including broadcasts) | **Agents must know when they have new messages — they cannot poll** |
+| `agent_registered` | A new agent registers | Agents must know who else is working on the codebase |
+| `agent_activated` | An agent reconnects | Agents must know who is currently online |
+| `agent_deactivated` | An agent disconnects | Agents must know who went offline |
+| `lock_acquired` | Any agent acquires a file lock | Agents must know which files are locked before editing |
+| `lock_released` | Any agent releases a file lock | Agents must know when files become available |
+| `lock_renewed` | Any agent renews a lock | Agents must know lock state changes |
+| `plan_updated` | Any agent updates their plan | Agents must coordinate work |
+
+### How it works (implementation)
+
+The server maintains an **agent event hub** — a registry of all connected agent McpServer instances. When any tool handler modifies state, the notification emitter pushes a logging notification to EVERY registered agent server (with a 50ms delay to avoid racing with the tool-call HTTP response on the same session).
+
+Wire format (MCP JSON-RPC notification over SSE):
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/message",
+  "params": {
+    "level": "info",
+    "logger": "too-many-cooks",
+    "data": {
+      "event": "message_sent",
+      "timestamp": 1700000000000,
+      "payload": {
+        "message_id": "msg123",
+        "from_agent": "agent1",
+        "to_agent": "agent2",
+        "content": "Hello"
+      }
+    }
+  }
+}
+```
+
+### NO POLLING. EVER.
+
+Agents do NOT need to call `message get` on a timer. They do NOT need to call `status` repeatedly. The server pushes all state changes to them in real-time. If an agent is connected, it WILL receive every event.
+
+---
+
 ## Connection Lifecycle & Active Agents
 
 There is **no subscribe tool**. Subscriptions are automatic — managed entirely by the server based on connection state.
@@ -99,7 +150,7 @@ There is **no subscribe tool**. Subscriptions are automatic — managed entirely
 ### How it works
 
 1. **First connection** — agent calls `register` with just `name` → server creates identity, returns key, marks agent **active**, opens [HTTP STREAMABLE TRANSPORT](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) event stream. **The agent must store this key.**
-2. **While connected** — server pushes all relevant events (lock changes, messages, plan updates, agent status changes) to the agent via [HTTP STREAMABLE TRANSPORT](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) automatically
+2. **While connected** — server pushes all relevant events (lock changes, messages, plan updates, agent status changes) to the agent via [HTTP STREAMABLE TRANSPORT](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) automatically. **This is not optional — it is the core mechanism.**
 3. **Connection drops** (agent disconnects, crashes, network loss) → server immediately marks agent as **deactivated** in the DB and emits `agent_deactivated` to all remaining connections (agents + VSIX)
 4. **Reconnect** — agent calls `register` with `key` only → server looks up the agent name from the key, marks agent **active** again, emits `agent_activated`. No new key is issued — the original key remains valid. Specifying `name` on reconnect is an error.
 
@@ -107,17 +158,9 @@ There is **no subscribe tool**. Subscriptions are automatic — managed entirely
 
 The `identity` table tracks connection state via an `active` column. The set of active agents **always matches** the set of agents with live [HTTP STREAMABLE TRANSPORT](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) connections. This is the single source of truth — the VSIX reads it to show which agents are online.
 
-### Events
-
-All events are pushed automatically to every connected client (agents + VSIX):
-- `agent_registered`, `agent_activated`, `agent_deactivated`
-- `lock_acquired`, `lock_released`, `lock_renewed`
-- `message_sent`
-- `plan_updated`
-
 ### VSIX behavior
 
-The VSIX connects to `/admin/events` ([HTTP STREAMABLE TRANSPORT](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)) on startup and receives the same event stream. When an `agent_deactivated` event arrives, the VSIX immediately reflects this in the tree view (greyed out, offline indicator, etc.). No polling — the VSIX is purely reactive to push events.
+The VSIX connects to `/admin/events` ([HTTP STREAMABLE TRANSPORT](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)) on startup and receives the same event stream as agents. When an `agent_deactivated` event arrives, the VSIX immediately reflects this in the tree view (greyed out, offline indicator, etc.). No polling — the VSIX is purely reactive to push events.
 
 ---
 

@@ -65,7 +65,8 @@ Result<McpServer, String> createMcpServerForDb(
   TooManyCooksDb db,
   TooManyCooksConfig config,
   Logger log, {
-  AdminPushFn? adminPush,
+  EventPushFn? adminPush,
+  EventPushFn? agentPush,
 }) {
   final serverResult = McpServer.create(
     (name: 'too-many-cooks', version: '0.1.0'),
@@ -90,10 +91,12 @@ Result<McpServer, String> createMcpServerForDb(
       (serverResult as Success<McpServer, String>).value;
   log.debug('MCP server created');
 
-  // Create notification emitter — also pushes to admin hub
+  // Create notification emitter — pushes to both agent and
+  // admin hubs for real-time notifications
   final emitter = createNotificationEmitter(
     server,
     adminPush: adminPush,
+    agentPush: agentPush,
   );
 
   // Per-connection session state

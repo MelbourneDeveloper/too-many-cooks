@@ -63,6 +63,9 @@ Future<void> _startServer(Logger log) async {
   final transports =
       <String, StreamableHttpTransport>{};
 
+  // Agent event hub — pushes notifications to all agents
+  final agentHub = createAgentEventHub();
+
   // Admin event hub for Streamable HTTP push
   final adminHub = createAdminEventHub();
 
@@ -92,8 +95,9 @@ Future<void> _startServer(Logger log) async {
     );
 
   // MCP Streamable HTTP routes
-  final postFn =
-      _mcpPostHandler(transports, db, cfg, log, adminHub);
+  final postFn = _mcpPostHandler(
+    transports, db, cfg, log, adminHub, agentHub,
+  );
   final getDeleteFn =
       _mcpGetDeleteHandler(transports);
   app
@@ -156,6 +160,7 @@ Future<void> Function(Request, Response)
   TooManyCooksConfig cfg,
   Logger log,
   AdminEventHub adminHub,
+  AgentEventHub agentHub,
 ) => (req, res) async {
   final sessionId =
       _getHeader(req, 'mcp-session-id');
@@ -200,12 +205,14 @@ Future<void> Function(Request, Response)
           structuredData: {'sessionId': sid},
         );
         transports.remove(sid);
+        agentHub.servers.remove(sid);
       }
     }).toJS;
 
     final serverResult = createMcpServerForDb(
       db, cfg, log,
       adminPush: adminHub.pushEvent,
+      agentPush: agentHub.pushEvent,
     );
     final server = switch (serverResult) {
       Success(:final value) => value,
@@ -220,6 +227,15 @@ Future<void> Function(Request, Response)
           body,
         )
         .toDart;
+
+    // Track agent server for push notifications.
+    // Must be AFTER handleRequest — sessionId is only
+    // set during onSessionInitialized which fires
+    // inside handleRequest for initialize.
+    final sid = transport.sessionId;
+    if (sid != null) {
+      agentHub.servers[sid] = server;
+    }
     return;
   }
 
