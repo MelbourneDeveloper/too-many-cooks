@@ -15,7 +15,7 @@ Set `TMC_WORKSPACE` to target a specific workspace folder (defaults to `process.
 
 | Package | Description |
 |---------|-------------|
-| [too_many_cooks](too_many_cooks/) | MCP server + data layer (Dart compiled to Node.js) |
+| [too-many-cooks](too-many-cooks/) | MCP server + data layer (Dart compiled to Node.js) |
 | [too_many_cooks_vscode_extension](too_many_cooks_vscode_extension/) | VSCode extension for monitoring agent coordination |
 
 ## Features
@@ -29,7 +29,7 @@ Set `TMC_WORKSPACE` to target a specific workspace folder (defaults to `process.
 ## Project Structure
 
 ```
-too_many_cooks/                     # MCP server (Dart/Node.js)
+too-many-cooks/                     # MCP server (Dart/Node.js)
 too_many_cooks_vscode_extension/    # VSCode extension (TypeScript)
 docs/                               # Specification
 website/                            # Documentation website (Eleventy)

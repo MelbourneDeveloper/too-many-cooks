@@ -25,7 +25,7 @@
   "bugs": {
     "url": "https://github.com/MelbourneDeveloper/dart_node/issues"
   },
-  "homepage": "https://github.com/MelbourneDeveloper/dart_node/tree/main/examples/too_many_cooks#readme",
+  "homepage": "https://github.com/MelbourneDeveloper/dart_node/tree/main/examples/too-many-cooks#readme",
   "engines": {
     "node": ">=18.0.0"
   },

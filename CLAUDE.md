@@ -60,7 +60,7 @@ When generating web content, read these first:
 ## Codebase Structure
 
 ```
-too_many_cooks/                     # MCP server (Dart/Node.js)
+too-many-cooks/                     # MCP server (Dart/Node.js)
 
 too_many_cooks_vscode_extension/    # VSCode extension (TypeScript/Dart)
 docs/                               # Specification

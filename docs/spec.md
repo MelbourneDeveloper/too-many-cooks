@@ -6,7 +6,7 @@ CRITICAL: THERE IS ONLY ONE SERVER. IT SERVES BOTH MCP and ADMIN ROUTES.
 
 MCP server enabling multiple AI agents to safely edit a git repository simultaneously. Provides advisory file locking, agent identity, inter-agent messaging, plan visibility, and real-time event notifications.
 
-**Location**: `examples/too_many_cooks/`
+**Location**: `examples/too-many-cooks/`
 
 **Tech Stack**: Dart on Node.js, better-sqlite3 via JS interop, dart_node_mcp, dart_node_express, FP (typedef records, Result<T,E>)
 
@@ -190,7 +190,7 @@ Admin operations are exposed as REST endpoints on the server, **not** as MCP too
 | Package | Role |
 |---------|------|
 
-| `too_many_cooks/` | HTTP server. MCP endpoint for agents, admin REST endpoints for VSIX, event notifications. |
+| `too-many-cooks/` | HTTP server. MCP endpoint for agents, admin REST endpoints for VSIX, event notifications. |
 | `too_many_cooks_vscode_extension/` | VSCode extension. Talks to server via `/admin/*` REST endpoints. Receives all state changes via [HTTP STREAMABLE TRANSPORT](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) push. Tree views for agents, locks, messages, plans. |
 
 ---
@@ -224,7 +224,7 @@ Black-box, end-to-end tests. Interact via MCP protocol (HTTP) or VSCode UI, veri
 
 | Test suite | Location |
 |------------|----------|
-| Data layer | `too_many_cooks/test/` |
-| MCP server (integration) | `too_many_cooks/test/integration_test.dart` |
-| Tool schemas | `too_many_cooks/test/tool_schemas_test.dart` |
+| Data layer | `too-many-cooks/test/` |
+| MCP server (integration) | `too-many-cooks/test/integration_test.dart` |
+| Tool schemas | `too-many-cooks/test/tool_schemas_test.dart` |
 | VSCode extension | `too_many_cooks_vscode_extension/test/suite/` |

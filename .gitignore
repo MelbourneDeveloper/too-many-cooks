@@ -10,7 +10,7 @@ too_many_cooks_vscode_extension/logs/
 
 .dart_tool/
 
-too_many_cooks/build/
+too-many-cooks/build/
 
 .DS_Store
 too_many_cooks_vscode_extension/out/
@@ -18,7 +18,7 @@ too_many_cooks_vscode_extension/out/
 .too_many_cooks/
 
 
-too_many_cooks/logs/
+too-many-cooks/logs/
 website/playwright-report/
 
 website/_site/

@@ -24,7 +24,7 @@ This does:
 ## Build MCP server only
 
 ```bash
-cd too_many_cooks && dart pub get && npm ci
+cd too-many-cooks && dart pub get && npm ci
 dart compile js -o build/bin/server.js bin/server.dart
 ```
 

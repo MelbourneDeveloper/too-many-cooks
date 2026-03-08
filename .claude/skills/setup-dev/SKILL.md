@@ -17,13 +17,13 @@ allowed-tools: Bash
 ## MCP Server Setup
 
 ```bash
-cd too_many_cooks && dart pub get && npm ci
+cd too-many-cooks && dart pub get && npm ci
 dart compile js -o build/bin/server.js bin/server.dart
 ```
 
 Add to Claude Code:
 ```bash
-claude mcp add --transport http too-many-cooks -- node too_many_cooks/build/bin/server.js
+claude mcp add --transport http too-many-cooks -- node too-many-cooks/build/bin/server.js
 ```
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: Create a pull request for the too_many_cooks repo
+description: Create a pull request for the too-many-cooks repo
 disable-model-invocation: true
 allowed-tools: Bash, Read, Grep, Glob
 ---

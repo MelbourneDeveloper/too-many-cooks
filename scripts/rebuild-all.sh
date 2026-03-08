@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPTS/.." && pwd)"
 DART_NODE="$(cd "$ROOT/../dart_node" && pwd)"
-MCP_DIR="$ROOT/too_many_cooks"
+MCP_DIR="$ROOT/too-many-cooks"
 VSIX_DIR="$ROOT/too_many_cooks_vscode_extension"
 SERVER_BINARY="build/bin/server_node.js"
 PORT=4040

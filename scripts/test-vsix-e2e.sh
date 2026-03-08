@@ -6,15 +6,15 @@ VSIX_DIR="$ROOT/too_many_cooks_vscode_extension"
 SERVER_BINARY="build/bin/server_node.js"
 
 # 1. Clean MCP
-rm -rf "$ROOT/too_many_cooks/build"
+rm -rf "$ROOT/too-many-cooks/build"
 
 # 2. Build MCP
-cd "$ROOT/too_many_cooks"
+cd "$ROOT/too-many-cooks"
 dart compile js -o build/bin/server.js bin/server.dart
 cd "$ROOT/../dart_node"
 dart run tools/build/add_preamble.dart \
-  "$ROOT/too_many_cooks/build/bin/server.js" \
-  "$ROOT/too_many_cooks/$SERVER_BINARY" \
+  "$ROOT/too-many-cooks/build/bin/server.js" \
+  "$ROOT/too-many-cooks/$SERVER_BINARY" \
   --shebang
 
 # 3. Clean VSIX
@@ -29,7 +29,7 @@ npm run compile:test
 # 5. Start MCP server
 cleanup_mcp() { [ -n "${MCP_PID:-}" ] && kill "$MCP_PID" 2>/dev/null || true; }
 trap cleanup_mcp EXIT
-node "$ROOT/too_many_cooks/$SERVER_BINARY" &
+node "$ROOT/too-many-cooks/$SERVER_BINARY" &
 MCP_PID=$!
 
 # Poll until server is ready (max 10s)
