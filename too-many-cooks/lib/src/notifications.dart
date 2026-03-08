@@ -42,71 +42,132 @@ const eventPlanUpdated = 'plan_updated';
 /// Logger name for agent notifications.
 const agentLoggerName = 'too-many-cooks';
 
-/// Callback type for pushing events.
+/// Broadcast recipient sentinel.
+const broadcastRecipient = '*';
+
+/// Callback type for pushing events to all agents.
 typedef EventPushFn =
     void Function(String event, Map<String, Object?> payload);
 
+/// Callback type for pushing events to a specific agent by name
+/// or '*' for all.
+typedef EventPushToAgentFn = void Function(
+  String event,
+  Map<String, Object?> payload,
+  String toAgent,
+);
+
 /// Agent event hub — tracks all connected agent McpServer
 /// instances and pushes notifications to them in real-time.
+///
+/// Only sessions with an active SSE GET stream receive pushes.
+/// This prevents buffered notifications from being delivered
+/// when the SSE stream first opens.
 typedef AgentEventHub = ({
   Map<String, McpServer> servers,
-  void Function(String event, Map<String, Object?> payload)
-      pushEvent,
+  /// sessionId → agentName, populated on register.
+  Map<String, String> sessionAgentNames,
+  /// Sessions with an active SSE GET stream.
+  Set<String> activeSseSessions,
+  EventPushFn pushEvent,
+  EventPushToAgentFn pushToAgent,
 });
 
-/// Create an agent event hub for pushing real-time
-/// notifications to all connected agents.
+/// Create an agent event hub.
 AgentEventHub createAgentEventHub() {
   final servers = <String, McpServer>{};
+  final sessionAgentNames = <String, String>{};
+  final activeSseSessions = <String>{};
 
-  void pushEvent(
-    String event,
-    Map<String, Object?> payload,
+  void send(
+    String sessionId,
+    McpServer server,
+    Map<String, Object?> data,
   ) {
+    if (!activeSseSessions.contains(sessionId)) return;
+    consoleError('[TMC] [AGENT-PUSH] Sending to $sessionId');
+    unawaited(
+      server
+          .sendLoggingMessage((
+            level: 'info',
+            logger: agentLoggerName,
+            data: data,
+          ))
+          .then((_) {
+            consoleError(
+              '[TMC] [AGENT-PUSH] Sent OK to $sessionId',
+            );
+          }, onError: (Object e) {
+            consoleError(
+              '[TMC] [AGENT-PUSH] FAILED $sessionId: $e',
+            );
+            servers.remove(sessionId);
+            sessionAgentNames.remove(sessionId);
+            activeSseSessions.remove(sessionId);
+          }),
+    );
+  }
+
+  void pushEvent(String event, Map<String, Object?> payload) {
     consoleError(
-      '[TMC] [AGENT-PUSH] $event → '
-      '${servers.length} agent(s)',
+      '[TMC] [AGENT-PUSH] $event → ${servers.length} agent(s)',
     );
     final data = <String, Object?>{
       'event': event,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
       'payload': payload,
     };
-
     for (final entry in [...servers.entries]) {
-      consoleError(
-        '[TMC] [AGENT-PUSH] Sending to ${entry.key}',
-      );
-      unawaited(
-        entry.value
-            .sendLoggingMessage((
-              level: 'info',
-              logger: agentLoggerName,
-              data: data,
-            ))
-            .then((_) {
-              consoleError(
-                '[TMC] [AGENT-PUSH] Sent OK to '
-                '${entry.key}',
-              );
-            }, onError: (Object e) {
-              consoleError(
-                '[TMC] [AGENT-PUSH] FAILED '
-                '${entry.key}: $e',
-              );
-              servers.remove(entry.key);
-            }),
-      );
+      send(entry.key, entry.value, data);
     }
   }
 
-  return (servers: servers, pushEvent: pushEvent);
+  void pushToAgent(
+    String event,
+    Map<String, Object?> payload,
+    String toAgent,
+  ) {
+    final data = <String, Object?>{
+      'event': event,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'payload': payload,
+    };
+    if (toAgent == broadcastRecipient) {
+      consoleError(
+        '[TMC] [AGENT-PUSH] $event (broadcast) → '
+        '${servers.length} agent(s)',
+      );
+      for (final entry in [...servers.entries]) {
+        send(entry.key, entry.value, data);
+      }
+    } else {
+      for (final entry in [...sessionAgentNames.entries]) {
+        if (entry.value == toAgent) {
+          final server = servers[entry.key];
+          if (server != null) send(entry.key, server, data);
+        }
+      }
+    }
+  }
+
+  return (
+    servers: servers,
+    sessionAgentNames: sessionAgentNames,
+    activeSseSessions: activeSseSessions,
+    pushEvent: pushEvent,
+    pushToAgent: pushToAgent,
+  );
 }
 
-/// Notification emitter — broadcasts events to all connected
-/// clients via MCP logging. No subscriber management.
+/// Notification emitter — pushes events to agents and admin.
 typedef NotificationEmitter = ({
   void Function(String event, Map<String, Object?> payload) emit,
+  /// Push only to a specific agent by name, or '*' for all.
+  void Function(
+    String event,
+    Map<String, Object?> payload,
+    String toAgent,
+  ) emitToAgent,
 });
 
 /// Create a notification emitter that pushes to both the
@@ -119,18 +180,25 @@ NotificationEmitter createNotificationEmitter(
   McpServer server, {
   EventPushFn? adminPush,
   EventPushFn? agentPush,
+  EventPushToAgentFn? agentPushToAgent,
 }) {
   void emit(String event, Map<String, Object?> payload) {
-    // Deferred to next event-loop tick so the tool-call HTTP
-    // response is flushed before the push arrives.
-    // Without this, the push can beat the response and
-    // clients parse a notification instead of their tool
-    // result.
     Timer(const Duration(milliseconds: 50), () {
       adminPush?.call(event, payload);
       agentPush?.call(event, payload);
     });
   }
 
-  return (emit: emit,);
+  void emitToAgent(
+    String event,
+    Map<String, Object?> payload,
+    String toAgent,
+  ) {
+    Timer(const Duration(milliseconds: 50), () {
+      adminPush?.call(event, payload);
+      agentPushToAgent?.call(event, payload, toAgent);
+    });
+  }
+
+  return (emit: emit, emitToAgent: emitToAgent);
 }

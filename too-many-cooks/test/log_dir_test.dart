@@ -33,10 +33,9 @@ void main() {
       // Create a fresh temp workspace with NO logs/ subdirectory.
       final fs = requireModule('fs') as JSObject;
       final mkdtempFn = fs['mkdtempSync']! as JSFunction;
-      tmpWorkspace =
-          (mkdtempFn.callAsFunction(null, '/tmp/tmc-log-test-'.toJS)
-                  as JSString)
-              .toDart;
+      final result = mkdtempFn.callAsFunction(null, '/tmp/tmc-log-test-'.toJS);
+      if (result == null) throw StateError('mkdtempSync returned null');
+      tmpWorkspace = (result as JSString).toDart;
 
       serverProcess = _spawnServerWithWorkspace(tmpWorkspace);
       await _waitForServer();
