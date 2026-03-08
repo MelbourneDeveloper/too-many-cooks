@@ -31,7 +31,7 @@ Or with npx (no global install):
 ```bash
 npx too-many-cooks
 ```
-
+`
 ## Configure Your AI Agent
 
 Too Many Cooks uses **Streamable HTTP** transport, not stdio. All agents connect to the same running server over HTTP so they can see each other's locks, messages, and plans in real-time. Start the server first, then point your agent at it.

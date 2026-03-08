@@ -39,10 +39,11 @@ export function activate(context: vscode.ExtensionContext): TestAPI {
 
   const config: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration('tooManyCooks');
   const autoConnect: boolean = config.get<boolean>('autoConnect') ?? true;
+  const port: number = config.get<number>('port') ?? 4040;
   const workspaceFolder: string = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '.';
   log(`Using workspace folder: ${workspaceFolder}`);
 
-  const storeManager: StoreManager = new StoreManager(workspaceFolder, log);
+  const storeManager: StoreManager = new StoreManager(workspaceFolder, port, log);
   const agentsProvider: AgentsTreeProvider = new AgentsTreeProvider(storeManager);
   const locksProvider: LocksTreeProvider = new LocksTreeProvider(storeManager);
   const messagesProvider: MessagesTreeProvider = new MessagesTreeProvider(storeManager);

@@ -106,7 +106,7 @@ Future<void> _startServer(Logger log) async {
     ..delete('/mcp', _asyncHandler(getDeleteFn, log));
 
   // Start listening
-  const port = 4040;
+  final port = getServerPort();
   app.listen(
     port,
     (() {

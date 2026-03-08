@@ -60,6 +60,8 @@ extension type _Process(JSObject _) implements JSObject {
 extension type _Env(JSObject _) implements JSObject {
   @JS('TMC_WORKSPACE')
   external JSString? get tmcWorkspace;
+  @JS('TMC_PORT')
+  external JSString? get tmcPort;
 }
 
 /// Get workspace folder from TMC_WORKSPACE env var or process.cwd().
@@ -68,6 +70,16 @@ extension type _Env(JSObject _) implements JSObject {
 /// The VSCode extension does NOT use the database directly.
 String getWorkspaceFolder() =>
     _process.env.tmcWorkspace?.toDart ?? _process.cwd();
+
+/// Default server port.
+const defaultPort = 4040;
+
+/// Get server port from TMC_PORT env var or default (4040).
+int getServerPort() {
+  final raw = _process.env.tmcPort?.toDart;
+  if (raw == null) return defaultPort;
+  return int.tryParse(raw) ?? defaultPort;
+}
 
 /// Default configuration using the resolved workspace folder.
 /// Used by the MCP server when no explicit config is provided.

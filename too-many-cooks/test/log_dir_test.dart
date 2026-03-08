@@ -1,0 +1,160 @@
+/// Regression test: server must not crash when writing to the log file
+/// in a workspace whose logs/ directory does not yet exist.
+///
+/// Reproduces: ENOENT crash on appendFileSync when TMC_WORKSPACE points
+/// to a directory that has never had a logs/ subdirectory created.
+library;
+
+import 'dart:async';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+
+import 'package:dart_node_core/dart_node_core.dart';
+import 'package:test/test.dart';
+import 'package:too_many_cooks/too_many_cooks.dart' show serverBinary;
+
+const _baseUrl = 'http://localhost:4040';
+const _accept = 'application/json, text/event-stream';
+
+/// HTTP fetch (Node.js global).
+@JS('globalThis.fetch')
+external JSPromise<JSObject> _jsFetch(
+  JSString url, [
+  JSObject? options,
+]);
+
+void main() {
+  group('Log directory creation', () {
+    late JSObject serverProcess;
+    late String tmpWorkspace;
+
+    setUpAll(() async {
+      // Create a fresh temp workspace with NO logs/ subdirectory.
+      final os = requireModule('os') as JSObject;
+      final mkdtempFn = os['mkdtempSync']! as JSFunction;
+      final tmpDirBase = os['tmpdir']! as JSFunction;
+      final baseTmp = (tmpDirBase.callAsFunction(os) as JSString).toDart;
+      final pathMod = requireModule('path') as JSObject;
+      final joinFn = pathMod['join']! as JSFunction;
+      final prefix = (joinFn.callAsFunction(
+        pathMod,
+        baseTmp.toJS,
+        'tmc-log-test-'.toJS,
+      ) as JSString)
+          .toDart;
+      tmpWorkspace =
+          (mkdtempFn.callAsFunction(null, prefix.toJS) as JSString).toDart;
+
+      // Spawn server with TMC_WORKSPACE pointing to the fresh dir.
+      serverProcess = _spawnServerWithWorkspace(tmpWorkspace);
+      await _waitForServer();
+    });
+
+    tearDownAll(() {
+      _killProcess(serverProcess);
+      // Clean up temp workspace
+      final fs = requireModule('fs') as JSObject;
+      final rmFn = fs['rmSync'] as JSFunction?;
+      rmFn?.callAsFunction(
+        fs,
+        tmpWorkspace.toJS,
+        <String, Object?>{'recursive': true, 'force': true}.jsify(),
+      );
+    });
+
+    test(
+        'server survives a bad MCP request that triggers error logging',
+        () async {
+      // Send a POST to /mcp with no session-id and no initialize body.
+      // This triggers a 400 response AND causes the error-log code path
+      // (appendFileSync) to run. Before the fix this crashed the server.
+      final headers = JSObject()
+        ..['Content-Type'] = 'application/json'.toJS
+        ..['Accept'] = _accept.toJS;
+      final options = JSObject()
+        ..['method'] = 'POST'.toJS
+        ..['headers'] = headers
+        ..['body'] = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'.toJS;
+
+      final response = await _jsFetch(
+        '$_baseUrl/mcp'.toJS,
+        options,
+      ).toDart;
+
+      // Server should return 400, not crash.
+      final status =
+          (response['status'] as JSNumber?)?.toDartInt ?? 0;
+      expect(status, equals(400),
+          reason: 'Server should return 400 for bad request');
+
+      // Wait a moment then confirm server is still alive via /admin/status.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      final statusResponse = await _jsFetch(
+        '$_baseUrl/admin/status'.toJS,
+      ).toDart;
+      final ok =
+          (statusResponse['ok'] as JSBoolean?)?.toDart ?? false;
+      expect(ok, isTrue,
+          reason:
+              'Server must still be alive after handling bad request');
+    });
+
+    test('logs/ directory is created in workspace on startup', () {
+      final fs = requireModule('fs') as JSObject;
+      final existsFn = fs['existsSync']! as JSFunction;
+      final pathMod = requireModule('path') as JSObject;
+      final joinFn = pathMod['join']! as JSFunction;
+      final logsDir =
+          (joinFn.callAsFunction(
+                null,
+                tmpWorkspace.toJS,
+                'logs'.toJS,
+              ) as JSString?)
+              ?.toDart ??
+          '';
+      final exists =
+          (existsFn.callAsFunction(null, logsDir.toJS) as JSBoolean?)
+              ?.toDart ??
+          false;
+      expect(exists, isTrue,
+          reason: 'logs/ directory must be created in TMC_WORKSPACE');
+    });
+  });
+}
+
+JSObject _spawnServerWithWorkspace(String workspace) {
+  final childProcess =
+      requireModule('child_process') as JSObject;
+  final spawnFn = childProcess['spawn']! as JSFunction;
+  return spawnFn.callAsFunction(
+    null,
+    'node'.toJS,
+    <String>[serverBinary].jsify(),
+    <String, Object?>{
+      'stdio': ['pipe', 'pipe', 'inherit'],
+      'env': <String, Object?>{
+        'TMC_WORKSPACE': workspace,
+        'PORT': '$_port',
+      },
+    }.jsify(),
+  )! as JSObject;
+}
+
+void _killProcess(JSObject process) {
+  (process['kill']! as JSFunction).callAsFunction(process);
+}
+
+Future<void> _waitForServer() async {
+  for (var i = 0; i < 50; i++) {
+    try {
+      final r = await _jsFetch('$_baseUrl/admin/status'.toJS).toDart;
+      final ok = r['ok'] as JSBoolean?;
+      if (ok != null && ok.toDart) return;
+    } on Object {
+      // not ready yet
+    }
+    if (i == 49) throw StateError('Server failed to start');
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+  }
+}

@@ -13,6 +13,8 @@ export 'package:too_many_cooks/src/data/data.dart'
         createDataConfig,
         createDataConfigFromWorkspace,
         defaultConfig,
+        defaultPort,
+        getServerPort,
         getWorkspaceFolder,
         resolveDbPath;
 

@@ -9,7 +9,7 @@ import { Store } from 'state/store';
 import { parseStatusResponse } from 'services/statusParser';
 import { startAdminEventStream } from 'services/adminEventStream';
 
-const BASE_URL: string = 'http://localhost:4040';
+const DEFAULT_PORT: number = 4040;
 const SERVER_NOT_RUNNING_MSG: string =
   'MCP server is not running. Start it externally before connecting.';
 
@@ -18,14 +18,16 @@ type LogFn = (msg: string) => void;
 export class StoreManager {
   private readonly store: Store;
   public readonly workspaceFolder: string;
+  private readonly baseUrl: string;
   private connected: boolean = false;
   private connectPromise: Promise<void> | null = null;
   private mcpSessionId: string | null = null;
   private eventAbortController: AbortController | null = null;
   private readonly log: LogFn;
 
-  public constructor(workspaceFolder: string, log: LogFn) {
+  public constructor(workspaceFolder: string, port: number = DEFAULT_PORT, log: LogFn) {
     this.workspaceFolder = workspaceFolder;
+    this.baseUrl = `http://localhost:${String(port)}`;
     this.store = new Store();
     this.log = log;
   }
@@ -66,7 +68,7 @@ export class StoreManager {
   }
 
   private async doConnect(): Promise<void> {
-    const externalRunning: boolean = await checkServerAvailable(BASE_URL);
+    const externalRunning: boolean = await checkServerAvailable(this.baseUrl);
     if (!externalRunning) {
       throw new Error(SERVER_NOT_RUNNING_MSG);
     }
@@ -80,7 +82,7 @@ export class StoreManager {
     this.eventAbortController?.abort();
     this.eventAbortController = new AbortController();
     startAdminEventStream(this.eventAbortController, {
-      baseUrl: BASE_URL,
+      baseUrl: this.baseUrl,
       log: this.log,
       onEvent: (): void => { this.handleAdminEvent(); },
     });
@@ -105,7 +107,7 @@ export class StoreManager {
 
   public async refreshStatus(): Promise<void> {
     if (!this.isConnected) { throw new Error('Not connected'); }
-    const response: Response = await fetch(`${BASE_URL}/admin/status`);
+    const response: Response = await fetch(`${this.baseUrl}/admin/status`);
     if (!response.ok) {
       this.log(`[StoreManager] refreshStatus: response not ok (${String(response.status)})`);
       return;
@@ -129,17 +131,17 @@ export class StoreManager {
   }
 
   public async forceReleaseLock(filePath: string): Promise<void> {
-    await postJsonRequest(`${BASE_URL}/admin/delete-lock`, { filePath });
+    await postJsonRequest(`${this.baseUrl}/admin/delete-lock`, { filePath });
     await this.refreshStatus();
   }
 
   public async deleteAgent(agentName: string): Promise<void> {
-    await postJsonRequest(`${BASE_URL}/admin/delete-agent`, { agentName });
+    await postJsonRequest(`${this.baseUrl}/admin/delete-agent`, { agentName });
     await this.refreshStatus();
   }
 
   public async sendMessage(fromAgent: string, toAgent: string, content: string): Promise<void> {
-    await postJsonRequest(`${BASE_URL}/admin/send-message`, { content, fromAgent, toAgent });
+    await postJsonRequest(`${this.baseUrl}/admin/send-message`, { content, fromAgent, toAgent });
     await this.refreshStatus();
   }
 
@@ -147,10 +149,10 @@ export class StoreManager {
     if (!this.isConnected) { return '{"error":"Not connected"}'; }
     try {
       if (this.mcpSessionId === null) {
-        this.mcpSessionId = await initMcpSession(BASE_URL, '/mcp', 'too-many-cooks-vsix');
+        this.mcpSessionId = await initMcpSession(this.baseUrl, '/mcp', 'too-many-cooks-vsix');
       }
       const result: Record<string, unknown> = await mcpJsonRpcRequest({
-        baseUrl: BASE_URL,
+        baseUrl: this.baseUrl,
         method: 'tools/call',
         params: { arguments: args, name },
         sessionId: this.mcpSessionId,
