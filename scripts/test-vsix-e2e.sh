@@ -32,7 +32,7 @@ rm -rf "$VSIX_DIR/.too_many_cooks"
 # 6. Start MCP server
 cleanup_mcp() { [ -n "${MCP_PID:-}" ] && kill "$MCP_PID" 2>/dev/null || true; }
 trap cleanup_mcp EXIT
-TMC_WORKSPACE="$VSIX_DIR" node "$ROOT/too_many_cooks/$SERVER_BINARY" &
+node "$ROOT/too_many_cooks/$SERVER_BINARY" &
 MCP_PID=$!
 
 # Poll until server is ready (max 10s)

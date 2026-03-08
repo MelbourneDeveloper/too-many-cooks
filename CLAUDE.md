@@ -35,6 +35,7 @@ Multi-agent coordination MCP server for AI agents editing the same codebase. Inc
 - 100% coverage with high-level integration tests, not unit tests/mocks
 - Tests in separate files, not groups. Dart only (JS only for interop testing)
 - Never skip tests. Never remove assertions. Failing tests OK, silent failures = ⛔️ ILLEGAL. Aggressively unskip tests.
+- Make sure the logs are giving you enough information to diagnose the issue. If not, add logging
 - NO PLACEHOLDERS—throw if incomplete
 
 ### Bug Fix Process

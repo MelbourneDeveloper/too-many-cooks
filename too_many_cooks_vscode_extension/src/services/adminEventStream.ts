@@ -7,6 +7,7 @@ const INITIALIZED_NOTIFICATION: string = 'notifications/initialized';
 const MCP_VERSION: string = '2025-03-26';
 const CLIENT_NAME: string = 'too-many-cooks-vsix-admin';
 const CLIENT_VERSION: string = '1.0.0';
+const LOG_PREVIEW_LENGTH: number = 80;
 
 type LogFn = (msg: string) => void;
 
@@ -68,7 +69,7 @@ async function readEventStream(
         const lineData: string = line.substring(dataPrefix.length).trim();
         if (lineData.length > 0) {
           eventCount += 1;
-          log(`[AdminEventStream] Event #${String(eventCount)}: ${lineData.substring(0, 80)}`);
+          log(`[AdminEventStream] Event #${String(eventCount)}: ${lineData.substring(0, LOG_PREVIEW_LENGTH)}`);
           onEvent();
         }
       }
