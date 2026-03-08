@@ -29,7 +29,7 @@ external JSPromise<JSObject> _jsFetch(JSString url, [JSObject? options]);
 
 void main() {
   // `late` needed: assigned in setUpAll, used across multiple test callbacks.
-  // ignore: no_late
+  // ignore: no_late, reason: needed across multiple test callbacks
   late JSObject serverProcess;
 
   setUpAll(() async {

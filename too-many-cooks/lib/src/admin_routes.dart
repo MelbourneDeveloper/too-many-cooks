@@ -219,10 +219,6 @@ void registerAdminRoutes(
       switch (db.adminReset()) {
         case Success():
           hub.pushEvent('state_reset', <String, Object?>{});
-          // Clear stale admin sessions so events don't
-          // leak across test runs.
-          hub.servers.clear();
-          hub.transports.clear();
           res.send('{"reset":true}');
         case Error(:final error):
           _sendError(res, 500, dbErrorToJson(error));
