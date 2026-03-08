@@ -25,7 +25,7 @@ export class StoreManager {
   private eventAbortController: AbortController | null = null;
   private readonly log: LogFn;
 
-  public constructor(workspaceFolder: string, port: number = DEFAULT_PORT, log: LogFn) {
+  public constructor(workspaceFolder: string, log: LogFn, port: number = DEFAULT_PORT) {
     this.workspaceFolder = workspaceFolder;
     this.baseUrl = `http://localhost:${String(port)}`;
     this.store = new Store();

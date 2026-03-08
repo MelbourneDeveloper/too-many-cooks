@@ -144,12 +144,12 @@ CallToolResult _send(
   }
   return switch (db.sendMessage(agentName, agentKey, toAgent, content)) {
     Success(:final value) => () {
-      emitter.emit(eventMessageSent, {
+      emitter.emitToAgent(eventMessageSent, {
         'message_id': value,
         'from_agent': agentName,
         'to_agent': toAgent,
         'content': content,
-      });
+      }, toAgent);
       log.info('Message sent from $agentName to $toAgent');
       return (
         content: <Object>[textContent('{"sent":true,"message_id":"$value"}')],

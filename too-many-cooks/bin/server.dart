@@ -99,7 +99,7 @@ Future<void> _startServer(Logger log) async {
     transports, db, cfg, log, adminHub, agentHub,
   );
   final getDeleteFn =
-      _mcpGetDeleteHandler(transports);
+      _mcpGetDeleteHandler(transports, agentHub);
   app
     ..post('/mcp', _asyncHandler(postFn, log))
     ..get('/mcp', _asyncHandler(getDeleteFn, log))
@@ -206,6 +206,8 @@ Future<void> Function(Request, Response)
         );
         transports.remove(sid);
         agentHub.servers.remove(sid);
+        agentHub.sessionAgentNames.remove(sid);
+        agentHub.activeSseSessions.remove(sid);
       }
     }).toJS;
 
@@ -213,6 +215,13 @@ Future<void> Function(Request, Response)
       db, cfg, log,
       adminPush: adminHub.pushEvent,
       agentPush: agentHub.pushEvent,
+      agentPushToAgent: agentHub.pushToAgent,
+      onSessionSet: (agentName, _) {
+        final sid = transport.sessionId;
+        if (sid != null) {
+          agentHub.sessionAgentNames[sid] = agentName;
+        }
+      },
     );
     final server = switch (serverResult) {
       Success(:final value) => value,
@@ -248,6 +257,7 @@ Future<void> Function(Request, Response)
 Future<void> Function(Request, Response)
     _mcpGetDeleteHandler(
   Map<String, StreamableHttpTransport> transports,
+  AgentEventHub agentHub,
 ) => (req, res) async {
   final sessionId =
       _getHeader(req, 'mcp-session-id');
@@ -258,6 +268,9 @@ Future<void> Function(Request, Response)
       ..send('Invalid or missing session ID');
     return;
   }
+  // Mark session as having an active SSE stream so
+  // the agent hub delivers push notifications to it.
+  agentHub.activeSseSessions.add(sessionId);
   await transports[sessionId]
       ?.handleRequest(
         req as JSObject,

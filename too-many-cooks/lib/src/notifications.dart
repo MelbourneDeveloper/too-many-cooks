@@ -162,6 +162,8 @@ AgentEventHub createAgentEventHub() {
 /// Notification emitter — pushes events to agents and admin.
 typedef NotificationEmitter = ({
   void Function(String event, Map<String, Object?> payload) emit,
+  /// Push only to admin (VSIX), not to agents.
+  void Function(String event, Map<String, Object?> payload) emitAdmin,
   /// Push only to a specific agent by name, or '*' for all.
   void Function(
     String event,
@@ -173,9 +175,9 @@ typedef NotificationEmitter = ({
 /// Create a notification emitter that pushes to both the
 /// agent event hub and the admin event hub.
 ///
-/// Both pushes are deferred by 50ms so the tool-call HTTP
-/// response is flushed before the notification arrives on
-/// the same Streamable HTTP session.
+/// Pushes are synchronous — MCP notifications travel over the
+/// SSE GET stream, not the POST response, so there is no need
+/// to defer them.
 NotificationEmitter createNotificationEmitter(
   McpServer server, {
   EventPushFn? adminPush,
@@ -183,10 +185,12 @@ NotificationEmitter createNotificationEmitter(
   EventPushToAgentFn? agentPushToAgent,
 }) {
   void emit(String event, Map<String, Object?> payload) {
-    Timer(const Duration(milliseconds: 50), () {
-      adminPush?.call(event, payload);
-      agentPush?.call(event, payload);
-    });
+    adminPush?.call(event, payload);
+    agentPush?.call(event, payload);
+  }
+
+  void emitAdmin(String event, Map<String, Object?> payload) {
+    adminPush?.call(event, payload);
   }
 
   void emitToAgent(
@@ -194,11 +198,9 @@ NotificationEmitter createNotificationEmitter(
     Map<String, Object?> payload,
     String toAgent,
   ) {
-    Timer(const Duration(milliseconds: 50), () {
-      adminPush?.call(event, payload);
-      agentPushToAgent?.call(event, payload, toAgent);
-    });
+    adminPush?.call(event, payload);
+    agentPushToAgent?.call(event, payload, toAgent);
   }
 
-  return (emit: emit, emitToAgent: emitToAgent);
+  return (emit: emit, emitAdmin: emitAdmin, emitToAgent: emitToAgent);
 }

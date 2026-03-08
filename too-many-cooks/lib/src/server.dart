@@ -67,6 +67,8 @@ Result<McpServer, String> createMcpServerForDb(
   Logger log, {
   EventPushFn? adminPush,
   EventPushFn? agentPush,
+  EventPushToAgentFn? agentPushToAgent,
+  void Function(String agentName, String agentKey)? onSessionSet,
 }) {
   final serverResult = McpServer.create(
     (name: 'too-many-cooks', version: '0.1.0'),
@@ -97,6 +99,7 @@ Result<McpServer, String> createMcpServerForDb(
     server,
     adminPush: adminPush,
     agentPush: agentPush,
+    agentPushToAgent: agentPushToAgent,
   );
 
   // Per-connection session state
@@ -104,6 +107,7 @@ Result<McpServer, String> createMcpServerForDb(
   SessionIdentity? getSession() => session;
   void setSession(String name, String key) {
     session = (agentName: name, agentKey: key);
+    onSessionSet?.call(name, key);
     log.info('Session established for agent: $name');
   }
 

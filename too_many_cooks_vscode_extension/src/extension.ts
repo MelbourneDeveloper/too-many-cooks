@@ -43,7 +43,7 @@ export function activate(context: vscode.ExtensionContext): TestAPI {
   const workspaceFolder: string = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '.';
   log(`Using workspace folder: ${workspaceFolder}`);
 
-  const storeManager: StoreManager = new StoreManager(workspaceFolder, port, log);
+  const storeManager: StoreManager = new StoreManager(workspaceFolder, log, port);
   const agentsProvider: AgentsTreeProvider = new AgentsTreeProvider(storeManager);
   const locksProvider: LocksTreeProvider = new LocksTreeProvider(storeManager);
   const messagesProvider: MessagesTreeProvider = new MessagesTreeProvider(storeManager);
