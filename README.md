@@ -2,13 +2,6 @@
 
 Multi-agent coordination MCP server. Lets multiple AI agents safely edit the same codebase simultaneously using file locking, messaging, and shared plans.
 
-## Packages
-
-| Package | Description |
-|---------|-------------|
-| [too_many_cooks](too_many_cooks/) | MCP server + data layer (Dart/Node.js) |
-| [too_many_cooks_vscode_extension](too_many_cooks_vscode_extension/) | VSCode extension for visualizing agent coordination |
-
 ## Quick Start
 
 ```bash
@@ -16,7 +9,36 @@ npm install -g too-many-cooks
 claude mcp add --transport stdio too-many-cooks -- too-many-cooks
 ```
 
+Set `TMC_WORKSPACE` to target a specific workspace folder (defaults to `process.cwd()`).
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| [too_many_cooks](too_many_cooks/) | MCP server + data layer (Dart compiled to Node.js) |
+| [too_many_cooks_vscode_extension](too_many_cooks_vscode_extension/) | VSCode extension for monitoring agent coordination |
+
+## Features
+
+- **File locking** - agents acquire/release locks to prevent conflicting edits
+- **Messaging** - agents communicate intent and coordinate via messages
+- **Plans** - agents publish plans so others can see what's happening
+- **Admin dashboard** - VSCode extension with tree views for agents, locks, messages, and plans
+- **Real-time push** - state changes delivered via MCP Streamable HTTP transport
+
+## Project Structure
+
+```
+too_many_cooks/                     # MCP server (Dart/Node.js)
+too_many_cooks_vscode_extension/    # VSCode extension (TypeScript)
+docs/                               # Specification
+website/                            # Documentation website (Eleventy)
+scripts/                            # Build/test scripts
+```
+
 ## Documentation
+
+See the [spec](docs/spec.md) for the full protocol specification.
 
 [too-many-cooks.dev](https://melbournedeveloper.github.io/too_many_cooks)
 

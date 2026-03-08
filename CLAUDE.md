@@ -2,8 +2,6 @@
 
 Multi-agent coordination MCP server for AI agents editing the same codebase. Includes a VSIX that allows the user to see the interactions and perform admin tasks.
 
-## Rules
-
 ## Basics
 - NEVER KILL (pkill) THE VSCODE PROCESS!!!
 - Do not use Git unless asked by user
@@ -13,13 +11,13 @@ Multi-agent coordination MCP server for AI agents editing the same codebase. Inc
 - Check messages regularly, lock files before editing, unlock after
 - Don't edit locked files; signal intent via plans and messages
 
-### Code
+## Code
 
 - Literals are illegal. Move all literals to named constants
 - NO DUPLICATION. search before adding, move don't copy
 - Functions < 20 lines, files < 500 LOC
 - Switch expressions/ternaries over if/else (except in declarative contexts)
-- NO GLOBAL STATE. Keep all app state in one place. 
+- NO GLOBAL STATE. Keep all app state in one place.
 - Return `Result<T,E>` instead of throwing exceptions
 
 ### Dart
@@ -39,13 +37,24 @@ Multi-agent coordination MCP server for AI agents editing the same codebase. Inc
 - Never skip tests. Never remove assertions. Failing tests OK, silent failures = ⛔️ ILLEGAL. Aggressively unskip tests.
 - NO PLACEHOLDERS—throw if incomplete
 
-# Web & Translation
+### Bug Fix Process
+- Do not fix the bug immediately
+- Write a test that fails because of the bug
+- Run the test
+- Confirm that it fails BECAUSE of the bug. 
+- Repeat until it's failing BECAUSE of the bug
+- Fix the bug
+- You are not allowed to change the test
+- Run the test
+- Confirm that it passes or repeat until the bug is fixed.
 
-Always read these documents when generating web content. Optimize for AI Search and SEO. 
+# Web & SEO
 
-- [Top ways to ensure your content performs well in Google's AI experiences on Search](https://developers.google.com/search/blog/2025/05/succeeding-in-ai-search)
-- [Search Engine Optimization (SEO) Starter Guide](https://developers.google.com/search/docs/fundamentals/seo-starter-guide)
-- [Google Search's guidance on using generative AI content on your website](https://developers.google.com/search/docs/fundamentals/using-gen-ai-content)
+When generating web content, read these first:
+
+- [Succeeding in AI Search](https://developers.google.com/search/blog/2025/05/succeeding-in-ai-search)
+- [SEO Starter Guide](https://developers.google.com/search/docs/fundamentals/seo-starter-guide)
+- [Using Gen AI Content](https://developers.google.com/search/docs/fundamentals/using-gen-ai-content)
 
 ## Codebase Structure
 

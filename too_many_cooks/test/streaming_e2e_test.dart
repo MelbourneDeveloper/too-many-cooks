@@ -435,6 +435,7 @@ class _AdminSseClient {
   _AdminSseClient._();
 
   final _events = <String>[];
+  var _consumed = 0;
   _SseReader? _reader;
 
   /// Connect: init admin session, then open GET SSE stream.
@@ -460,17 +461,20 @@ class _AdminSseClient {
     int timeoutMs = _defaultEventTimeoutMs,
   }) async {
     final start = DateTime.now().millisecondsSinceEpoch;
-    final startLen = _events.length;
     while (DateTime.now().millisecondsSinceEpoch - start <
         timeoutMs) {
-      if (_events.length - startLen >= count) {
-        return _events.sublist(startLen);
+      if (_events.length - _consumed >= count) {
+        final result = _events.sublist(_consumed);
+        _consumed = _events.length;
+        return result;
       }
       await Future<void>.delayed(
         const Duration(milliseconds: 50),
       );
     }
-    return _events.sublist(startLen);
+    final result = _events.sublist(_consumed);
+    _consumed = _events.length;
+    return result;
   }
 
   void close() {

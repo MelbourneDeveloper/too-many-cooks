@@ -1,8 +1,18 @@
-# Too Many Cooks VSCode Extension
+# Too Many Cooks - VSCode Extension
 
-VSCode extension for visualizing multi-agent coordination. See [spec](../docs/spec.md).
+VSCode extension for monitoring and managing multi-agent coordination. See the [spec](../docs/spec.md) for full documentation.
 
-Talks to the TMC server via `/admin/*` REST endpoints. Receives all state changes via [HTTP STREAMABLE TRANSPORT](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) push — no polling. Does **not** access the database directly. Provides tree views for agents, locks, messages, and plans. Admin operations (delete agent, delete lock, reset key, send message) available via command palette.
+## How It Works
+
+- Communicates with the TMC server via `/admin/*` REST endpoints
+- Receives real-time state changes via [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) push (no polling)
+- Does **not** access the database directly
+
+## Features
+
+- **Tree views** for agents, file locks, messages, and plans
+- **Admin commands** via the command palette: delete agent, delete lock, reset key, send message
+- **Real-time updates** as agents register, lock files, and communicate
 
 ## Build
 
