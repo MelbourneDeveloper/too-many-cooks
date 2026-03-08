@@ -1,5 +1,5 @@
 ---
-name: website
+name: build-website
 description: Build, serve, and test the Too Many Cooks documentation website (Eleventy + Playwright)
 argument-hint: "[build|dev|test|clean]"
 disable-model-invocation: true

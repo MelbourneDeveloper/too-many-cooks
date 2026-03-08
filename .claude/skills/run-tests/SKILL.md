@@ -1,5 +1,5 @@
 ---
-name: test
+name: run-tests
 description: Run tests for Too Many Cooks packages. Detects which packages to test based on changed files.
 argument-hint: "[mcp|data|extension|all]"
 disable-model-invocation: true

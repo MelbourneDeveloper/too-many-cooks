@@ -1,5 +1,5 @@
 ---
-name: setup
+name: setup-dev
 description: Install development tools (mcp | extension | playwright)
 disable-model-invocation: true
 allowed-tools: Bash
