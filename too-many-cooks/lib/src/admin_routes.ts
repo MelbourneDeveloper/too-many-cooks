@@ -30,28 +30,26 @@ export type AdminEventHub = {
 };
 
 /** Send a push event to all connected admin servers. */
-const sendToServer = (
+const sendToServer = async (
   entry: [string, McpServer],
   data: Record<string, unknown>,
   servers: Map<string, McpServer>,
   transports: Map<string, StreamableHTTPServerTransport>,
-): void => {
+): Promise<void> => {
   const [key, server] = entry;
   console.error(`[TMC] [PUSH] Sending to ${key}`);
-  server.server
-    .sendLoggingMessage({
+  try {
+    await server.server.sendLoggingMessage({
       level: "info",
       logger: ADMIN_LOGGER_NAME,
       data,
-    })
-    .then(
-      () => { console.error(`[TMC] [PUSH] Sent OK to ${key}`); },
-      () => {
-        console.error(`[TMC] [PUSH] FAILED ${key}`);
-        servers.delete(key);
-        transports.delete(key);
-      },
-    );
+    });
+    console.error(`[TMC] [PUSH] Sent OK to ${key}`);
+  } catch {
+    console.error(`[TMC] [PUSH] FAILED ${key}`);
+    servers.delete(key);
+    transports.delete(key);
+  }
 };
 
 /** Create an admin event hub for Streamable HTTP push. */
@@ -71,9 +69,15 @@ export const createAdminEventHub = (): AdminEventHub => {
       timestamp: Date.now(),
       payload,
     };
-    for (const entry of [...servers.entries()]) {
-      sendToServer(entry, data, servers, transports);
-    }
+    const fireAndForget = async (): Promise<void> => {
+      await Promise.all(
+        [...servers.entries()].map(
+          async (entry) => sendToServer(entry, data, servers, transports),
+        ),
+      );
+    };
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    fireAndForget();
   };
 
   return { transports, servers, pushEvent };

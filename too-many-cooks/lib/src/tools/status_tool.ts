@@ -3,10 +3,8 @@
 import type { Logger } from "../logger.js";
 import {
   type TooManyCooksDb,
-  type DbError,
   agentIdentityToJson,
   agentPlanToJson,
-  dbErrorToJson,
   fileLockToJson,
   messageToJson,
 } from "../data/data.js";
@@ -15,6 +13,7 @@ import {
   type CallToolResult,
   type ToolCallback,
 } from "../types.js";
+import { makeErrorResult } from "./tool_utils.js";
 
 /** Input schema for status tool (no inputs required). */
 export const STATUS_INPUT_SCHEMA = {
@@ -64,8 +63,3 @@ export const createStatusHandler = (
       isError: false,
     });
   };
-
-const makeErrorResult = (e: DbError): CallToolResult => ({
-  content: [textContent(JSON.stringify(dbErrorToJson(e)))],
-  isError: true,
-});

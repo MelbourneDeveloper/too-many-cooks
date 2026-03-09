@@ -23,6 +23,10 @@ Multi-agent coordination MCP server for AI agents editing the same codebase. Inc
 
 ### Typescript
 - Turn ALL lints on and turn them to error
+- AVOID `any`! Use proper types, generics, and type guards
+- Prefer interfaces/type aliases over classes for data (structural typing)
+- **ILLEGAL: non-null assertion `!`, type assertion `as`, `.then()` (use async/await)** - Use type narrowing
+- Use `neverthrow` for Result types
 
 ### Testing
 - 100% coverage with high-level integration tests, not unit tests/mocks

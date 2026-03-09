@@ -24,3 +24,5 @@ website/playwright-report/
 website/_site/
 
 *.vsix
+
+website/coverage/

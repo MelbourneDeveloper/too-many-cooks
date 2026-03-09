@@ -17,6 +17,7 @@ import {
   type CallToolResult,
   type ToolCallback,
 } from "../types.js";
+import { errorContent } from "./tool_utils.js";
 
 /** Input schema for register tool. */
 export const REGISTER_INPUT_SCHEMA = {
@@ -195,8 +196,3 @@ export const createRegisterHandler = (
     const log = logger.child({ tool: "register", agentName: parsed.nameArg });
     return await Promise.resolve(handleFirstRegistration(db, emitter, log, setSession, parsed.nameArg));
   };
-
-const errorContent = (msg: string): CallToolResult => ({
-  content: [textContent(JSON.stringify({ error: msg }))],
-  isError: true,
-});

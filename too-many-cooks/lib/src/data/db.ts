@@ -82,7 +82,7 @@ export type TooManyCooksDb = {
   ) => Result<void, DbError>;
   readonly queryLock: (
     filePath: string,
-  ) => Result<FileLock | undefined, DbError>;
+  ) => Result<FileLock | null, DbError>;
   readonly listLocks: () => Result<readonly FileLock[], DbError>;
   readonly renewLock: (
     filePath: string,

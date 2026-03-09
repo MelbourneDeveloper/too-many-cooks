@@ -5,9 +5,7 @@ import type { NotificationEmitter } from "../notifications.js";
 import { EVENT_PLAN_UPDATED } from "../notifications.js";
 import {
   type TooManyCooksDb,
-  type DbError,
   agentPlanToJson,
-  dbErrorToJson,
 } from "../data/data.js";
 import {
   textContent,
@@ -15,6 +13,7 @@ import {
   type CallToolResult,
   type ToolCallback,
 } from "../types.js";
+import { resolveIdentity, makeErrorResult, errorContent } from "./tool_utils.js";
 
 /** Input schema for plan tool. */
 export const PLAN_INPUT_SCHEMA = {
@@ -53,51 +52,6 @@ export const PLAN_TOOL_CONFIG = {
   outputSchema: null,
   annotations: null,
 } as const;
-
-// ---------------------------------------------------------------------------
-// Identity resolution
-// ---------------------------------------------------------------------------
-
-type IdentityOk = {
-  readonly isError: false;
-  readonly agentName: string;
-  readonly agentKey: string;
-};
-type IdentityErr = {
-  readonly isError: true;
-  readonly result: CallToolResult;
-};
-
-const resolveIdentity = (
-  db: TooManyCooksDb,
-  args: Record<string, unknown>,
-  getSession: SessionGetter,
-): IdentityOk | IdentityErr => {
-  const keyOverride =
-    typeof args.agent_key === "string" ? args.agent_key : null;
-  if (keyOverride !== null) {
-    const lookupResult = db.lookupByKey(keyOverride);
-    if (!lookupResult.ok)
-      {return { isError: true, result: makeErrorResult(lookupResult.error) };}
-    return {
-      isError: false,
-      agentName: lookupResult.value,
-      agentKey: keyOverride,
-    };
-  }
-  const session = getSession();
-  if (session === null) {
-    return {
-      isError: true,
-      result: errorContent("not_registered: call register first"),
-    };
-  }
-  return {
-    isError: false,
-    agentName: session.agentName,
-    agentKey: session.agentKey,
-  };
-};
 
 /** Create plan tool handler. */
 export const createPlanHandler = (
@@ -220,16 +174,3 @@ const handleList = (db: TooManyCooksDb): CallToolResult => {
   };
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const makeErrorResult = (e: DbError): CallToolResult => ({
-  content: [textContent(JSON.stringify(dbErrorToJson(e)))],
-  isError: true,
-});
-
-const errorContent = (msg: string): CallToolResult => ({
-  content: [textContent(JSON.stringify({ error: msg }))],
-  isError: true,
-});
