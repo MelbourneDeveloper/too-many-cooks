@@ -1,0 +1,234 @@
+/// Plan tool - agent plan management.
+
+import type { Logger } from "../logger.js";
+import type { NotificationEmitter } from "../notifications.js";
+import { EVENT_PLAN_UPDATED } from "../notifications.js";
+import {
+  type TooManyCooksDb,
+  type DbError,
+  agentPlanToJson,
+  dbErrorToJson,
+} from "../data/data.js";
+import {
+  textContent,
+  type SessionGetter,
+  type CallToolResult,
+  type ToolCallback,
+} from "../types.js";
+
+/** Input schema for plan tool. */
+export const PLAN_INPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    action: {
+      type: "string",
+      enum: ["update", "get", "list"],
+      description: "Plan action to perform",
+    },
+    goal: {
+      type: "string",
+      maxLength: 100,
+      description: "Your goal (for update). MUST be 100 chars or less.",
+    },
+    current_task: {
+      type: "string",
+      maxLength: 100,
+      description:
+        "What you are doing now (for update). MUST be 100 chars or less.",
+    },
+  },
+  required: ["action"],
+} as const;
+
+/** Tool config for plan. */
+export const PLAN_TOOL_CONFIG = {
+  title: "Plan",
+  description:
+    "Manage your plan. You must register first (except list). " +
+    "REQUIRED: action (update|get|list). " +
+    "For update: goal, current_task. " +
+    'Example: {"action":"update","goal":"Fix bug",' +
+    ' "current_task":"Reading code"}',
+  inputSchema: PLAN_INPUT_SCHEMA,
+  outputSchema: null,
+  annotations: null,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Identity resolution
+// ---------------------------------------------------------------------------
+
+type IdentityOk = {
+  readonly isError: false;
+  readonly agentName: string;
+  readonly agentKey: string;
+};
+type IdentityErr = {
+  readonly isError: true;
+  readonly result: CallToolResult;
+};
+
+const resolveIdentity = (
+  db: TooManyCooksDb,
+  args: Record<string, unknown>,
+  getSession: SessionGetter,
+): IdentityOk | IdentityErr => {
+  const keyOverride =
+    typeof args["agent_key"] === "string" ? args["agent_key"] : null;
+  if (keyOverride !== null) {
+    const lookupResult = db.lookupByKey(keyOverride);
+    if (!lookupResult.ok)
+      return { isError: true, result: makeErrorResult(lookupResult.error) };
+    return {
+      isError: false,
+      agentName: lookupResult.value,
+      agentKey: keyOverride,
+    };
+  }
+  const session = getSession();
+  if (session === null) {
+    return {
+      isError: true,
+      result: errorContent("not_registered: call register first"),
+    };
+  }
+  return {
+    isError: false,
+    agentName: session.agentName,
+    agentKey: session.agentKey,
+  };
+};
+
+/** Create plan tool handler. */
+export const createPlanHandler = (
+  db: TooManyCooksDb,
+  emitter: NotificationEmitter,
+  logger: Logger,
+  getSession: SessionGetter,
+): ToolCallback =>
+  async (args, _meta) => {
+    const actionArg = args["action"];
+    if (typeof actionArg !== "string") {
+      return errorContent("missing_parameter: action is required");
+    }
+    const action = actionArg;
+    const log = logger.child({ tool: "plan", action });
+
+    if (action === "list") return handleList(db);
+
+    const identity = resolveIdentity(db, args, getSession);
+    if (identity.isError) return identity.result;
+    const { agentName, agentKey } = identity;
+
+    switch (action) {
+      case "update":
+        return handleUpdate(
+          db,
+          emitter,
+          log,
+          agentName,
+          agentKey,
+          typeof args["goal"] === "string" ? args["goal"] : null,
+          typeof args["current_task"] === "string"
+            ? args["current_task"]
+            : null,
+        );
+      case "get":
+        return handleGet(db, agentName);
+      default:
+        return {
+          content: [
+            textContent(
+              JSON.stringify({ error: `Unknown action: ${action}` }),
+            ),
+          ],
+          isError: true,
+        };
+    }
+  };
+
+// ---------------------------------------------------------------------------
+// Update
+// ---------------------------------------------------------------------------
+
+const handleUpdate = (
+  db: TooManyCooksDb,
+  emitter: NotificationEmitter,
+  log: Logger,
+  agentName: string,
+  agentKey: string,
+  goal: string | null,
+  currentTask: string | null,
+): CallToolResult => {
+  if (goal === null || currentTask === null) {
+    return errorContent("update requires goal, current_task");
+  }
+  const result = db.updatePlan(agentName, agentKey, goal, currentTask);
+  if (!result.ok) return makeErrorResult(result.error);
+  emitter.emit(EVENT_PLAN_UPDATED, {
+    agent_name: agentName,
+    goal,
+    current_task: currentTask,
+  });
+  log.info(`Plan updated for ${agentName}: ${currentTask}`);
+  return {
+    content: [textContent(JSON.stringify({ updated: true }))],
+    isError: false,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Get
+// ---------------------------------------------------------------------------
+
+const handleGet = (
+  db: TooManyCooksDb,
+  agentName: string,
+): CallToolResult => {
+  const result = db.getPlan(agentName);
+  if (!result.ok) return makeErrorResult(result.error);
+  return result.value !== undefined
+    ? {
+        content: [
+          textContent(
+            JSON.stringify({ plan: agentPlanToJson(result.value) }),
+          ),
+        ],
+        isError: false,
+      }
+    : {
+        content: [textContent(JSON.stringify({ plan: null }))],
+        isError: false,
+      };
+};
+
+// ---------------------------------------------------------------------------
+// List
+// ---------------------------------------------------------------------------
+
+const handleList = (db: TooManyCooksDb): CallToolResult => {
+  const result = db.listPlans();
+  if (!result.ok) return makeErrorResult(result.error);
+  return {
+    content: [
+      textContent(
+        JSON.stringify({ plans: result.value.map(agentPlanToJson) }),
+      ),
+    ],
+    isError: false,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const makeErrorResult = (e: DbError): CallToolResult => ({
+  content: [textContent(JSON.stringify(dbErrorToJson(e)))],
+  isError: true,
+});
+
+const errorContent = (msg: string): CallToolResult => ({
+  content: [textContent(JSON.stringify({ error: msg }))],
+  isError: true,
+});
