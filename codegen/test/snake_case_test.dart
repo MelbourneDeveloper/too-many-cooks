@@ -25,9 +25,9 @@ const _schema = '''
 void main() {
   test('Dart toJson uses snake_case keys', () {
     final dart = emitDart(parseOrFail(_schema));
-    expect(dart, contains('"event_name"'));
-    expect(dart, contains('"created_at"'));
-    expect(dart, contains('"is_active"'));
+    expect(dart, contains("'event_name'"));
+    expect(dart, contains("'created_at'"));
+    expect(dart, contains("'is_active'"));
   });
 
   test('Dart fromJson reads snake_case keys', () {

@@ -9,9 +9,12 @@ typedef AgentIdentity = ({
   int lastActive,
 });
 
-/// Serialize AgentIdentity to JSON string.
-String agentIdentityToJson(AgentIdentity agentIdentity) =>
-    '{"agent_name":"${agentIdentity.agentName}","registered_at":${agentIdentity.registeredAt},"last_active":${agentIdentity.lastActive}}';
+/// Serialize AgentIdentity to a JSON-compatible map.
+Map<String, Object?> agentIdentityToJson(AgentIdentity agentIdentity) => {
+  'agent_name': agentIdentity.agentName,
+  'registered_at': agentIdentity.registeredAt,
+  'last_active': agentIdentity.lastActive,
+};
 
 
 /// Deserialize AgentIdentity from a JSON map.
@@ -27,9 +30,11 @@ typedef AgentRegistration = ({
   String agentKey,
 });
 
-/// Serialize AgentRegistration to JSON string.
-String agentRegistrationToJson(AgentRegistration agentRegistration) =>
-    '{"agent_name":"${agentRegistration.agentName}","agent_key":"${agentRegistration.agentKey}"}';
+/// Serialize AgentRegistration to a JSON-compatible map.
+Map<String, Object?> agentRegistrationToJson(AgentRegistration agentRegistration) => {
+  'agent_name': agentRegistration.agentName,
+  'agent_key': agentRegistration.agentKey,
+};
 
 
 /// Deserialize AgentRegistration from a JSON map.
@@ -48,9 +53,15 @@ typedef FileLock = ({
   int version,
 });
 
-/// Serialize FileLock to JSON string.
-String fileLockToJson(FileLock fileLock) =>
-    '{"file_path":"${fileLock.filePath}","agent_name":"${fileLock.agentName}","acquired_at":${fileLock.acquiredAt},"expires_at":${fileLock.expiresAt},${fileLock.reason != null ? ',"reason":"${fileLock.reason!}"' : ''},"version":${fileLock.version}}';
+/// Serialize FileLock to a JSON-compatible map.
+Map<String, Object?> fileLockToJson(FileLock fileLock) => {
+  'file_path': fileLock.filePath,
+  'agent_name': fileLock.agentName,
+  'acquired_at': fileLock.acquiredAt,
+  'expires_at': fileLock.expiresAt,
+  if (fileLock.reason case final v?) 'reason': v,
+  'version': fileLock.version,
+};
 
 
 /// Deserialize FileLock from a JSON map.
@@ -70,9 +81,12 @@ typedef LockResult = ({
   String? error,
 });
 
-/// Serialize LockResult to JSON string.
-String lockResultToJson(LockResult lockResult) =>
-    '{"acquired":${lockResult.acquired},${lockResult.lock != null ? ',"lock":${fileLockToJson(lockResult.lock!)}' : ''},${lockResult.error != null ? ',"error":"${lockResult.error!}"' : ''}}';
+/// Serialize LockResult to a JSON-compatible map.
+Map<String, Object?> lockResultToJson(LockResult lockResult) => {
+  'acquired': lockResult.acquired,
+  if (lockResult.lock case final v?) 'lock': fileLockToJson(v),
+  if (lockResult.error case final v?) 'error': v,
+};
 
 
 /// Deserialize LockResult from a JSON map.
@@ -92,9 +106,15 @@ typedef Message = ({
   int? readAt,
 });
 
-/// Serialize Message to JSON string.
-String messageToJson(Message message) =>
-    '{"id":"${message.id}","from_agent":"${message.fromAgent}","to_agent":"${message.toAgent}","content":"${message.content}","created_at":${message.createdAt},${message.readAt != null ? ',"read_at":${message.readAt!}' : ''}}';
+/// Serialize Message to a JSON-compatible map.
+Map<String, Object?> messageToJson(Message message) => {
+  'id': message.id,
+  'from_agent': message.fromAgent,
+  'to_agent': message.toAgent,
+  'content': message.content,
+  'created_at': message.createdAt,
+  if (message.readAt case final v?) 'read_at': v,
+};
 
 
 /// Deserialize Message from a JSON map.
@@ -115,9 +135,13 @@ typedef AgentPlan = ({
   int updatedAt,
 });
 
-/// Serialize AgentPlan to JSON string.
-String agentPlanToJson(AgentPlan agentPlan) =>
-    '{"agent_name":"${agentPlan.agentName}","goal":"${agentPlan.goal}","current_task":"${agentPlan.currentTask}","updated_at":${agentPlan.updatedAt}}';
+/// Serialize AgentPlan to a JSON-compatible map.
+Map<String, Object?> agentPlanToJson(AgentPlan agentPlan) => {
+  'agent_name': agentPlan.agentName,
+  'goal': agentPlan.goal,
+  'current_task': agentPlan.currentTask,
+  'updated_at': agentPlan.updatedAt,
+};
 
 
 /// Deserialize AgentPlan from a JSON map.
@@ -134,9 +158,11 @@ typedef DbError = ({
   String message,
 });
 
-/// Serialize DbError to JSON string.
-String dbErrorToJson(DbError dbError) =>
-    '{"code":"${dbError.code}","message":"${dbError.message}"}';
+/// Serialize DbError to a JSON-compatible map.
+Map<String, Object?> dbErrorToJson(DbError dbError) => {
+  'code': dbError.code,
+  'message': dbError.message,
+};
 
 
 /// Deserialize DbError from a JSON map.

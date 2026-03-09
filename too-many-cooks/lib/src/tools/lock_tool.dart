@@ -1,6 +1,8 @@
 /// Lock tool - file lock management.
 library;
 
+import 'dart:convert' show jsonEncode;
+
 import 'package:dart_logging/dart_logging.dart';
 import 'package:dart_node_mcp/dart_node_mcp.dart';
 import 'package:nadz/nadz.dart';
@@ -307,14 +309,14 @@ CallToolResult _query(TooManyCooksDb db, String? filePath) {
     );
   }
   return switch (db.queryLock(filePath)) {
-    Success(:final value) when value == null => (
-      content: <Object>[textContent('{"locked":false}')],
+    Success(value: final FileLock v) => (
+      content: <Object>[
+        textContent('{"locked":true,"lock":${fileLockToJson(v)}}'),
+      ],
       isError: false,
     ),
-    Success(:final value) => (
-      content: <Object>[
-        textContent('{"locked":true,"lock":${fileLockToJson(value!)}}'),
-      ],
+    Success() => (
+      content: <Object>[textContent('{"locked":false}')],
       isError: false,
     ),
     Error(:final error) => _errorResult(error),

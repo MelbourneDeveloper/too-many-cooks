@@ -41,16 +41,23 @@ Result<ServerBundle, String> createTooManyCooksServer({
     );
     return Error(error);
   }
-  final db =
-      (dbResult as Success<TooManyCooksDb, String>).value;
+  final TooManyCooksDb db;
+  switch (dbResult) {
+    case Success(:final value):
+      db = value;
+    case Error(:final error):
+      return Error(error);
+  }
   log.debug('Database created successfully');
 
   final serverResult = createMcpServerForDb(db, cfg, log);
-  if (serverResult case Error(:final error)) {
-    return Error(error);
+  final McpServer server;
+  switch (serverResult) {
+    case Success(:final value):
+      server = value;
+    case Error(:final error):
+      return Error(error);
   }
-  final server =
-      (serverResult as Success<McpServer, String>).value;
 
   return Success((server: server, db: db));
 }
@@ -82,15 +89,17 @@ Result<McpServer, String> createMcpServerForDb(
       instructions: null,
     ),
   );
-  if (serverResult case Error(:final error)) {
-    log.error(
-      'Failed to create MCP server',
-      structuredData: {'error': error},
-    );
-    return Error(error);
+  final McpServer server;
+  switch (serverResult) {
+    case Success(:final value):
+      server = value;
+    case Error(:final error):
+      log.error(
+        'Failed to create MCP server',
+        structuredData: {'error': error},
+      );
+      return Error(error);
   }
-  final server =
-      (serverResult as Success<McpServer, String>).value;
   log.debug('MCP server created');
 
   // Create notification emitter — pushes to both agent and

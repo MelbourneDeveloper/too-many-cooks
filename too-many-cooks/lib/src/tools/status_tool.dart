@@ -32,37 +32,43 @@ ToolCallback createStatusHandler(TooManyCooksDb db, Logger logger) =>
       if (agentsResult case Error(:final error)) {
         return _errorResult(error);
       }
-      final agents = (agentsResult as Success<List<AgentIdentity>, DbError>)
-          .value
-          .map(agentIdentityToJson)
-          .join(',');
+      final String agents;
+      switch (agentsResult) {
+        case Success(:final value):
+          agents = value.map(agentIdentityToJson).join(',');
+        case Error(:final error):
+          return _errorResult(error);
+      }
 
       // Get locks
       final locksResult = db.listLocks();
-      if (locksResult case Error(:final error)) {
-        return _errorResult(error);
+      final String locks;
+      switch (locksResult) {
+        case Success(:final value):
+          locks = value.map(fileLockToJson).join(',');
+        case Error(:final error):
+          return _errorResult(error);
       }
-      final locks = (locksResult as Success<List<FileLock>, DbError>).value
-          .map(fileLockToJson)
-          .join(',');
 
       // Get plans
       final plansResult = db.listPlans();
-      if (plansResult case Error(:final error)) {
-        return _errorResult(error);
+      final String plans;
+      switch (plansResult) {
+        case Success(:final value):
+          plans = value.map(agentPlanToJson).join(',');
+        case Error(:final error):
+          return _errorResult(error);
       }
-      final plans = (plansResult as Success<List<AgentPlan>, DbError>).value
-          .map(agentPlanToJson)
-          .join(',');
 
       // Get messages
       final messagesResult = db.listAllMessages();
-      if (messagesResult case Error(:final error)) {
-        return _errorResult(error);
+      final String messages;
+      switch (messagesResult) {
+        case Success(:final value):
+          messages = value.map(messageToJson).join(',');
+        case Error(:final error):
+          return _errorResult(error);
       }
-      final messages = (messagesResult as Success<List<Message>, DbError>).value
-          .map(messageToJson)
-          .join(',');
 
       log.debug('Status queried');
 

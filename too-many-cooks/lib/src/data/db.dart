@@ -230,9 +230,10 @@ extension type _Crypto(JSObject _) implements JSObject {
   external JSUint8Array randomBytes(int size);
 }
 
-// requireModule returns JSAny which must be cast to JSObject for extension type
-// ignore: no_casts
-final _Crypto _crypto = _Crypto(requireModule('crypto') as JSObject);
+final _Crypto _crypto = switch (requireModule('crypto')) {
+  final JSObject obj => _Crypto(obj),
+  _ => throw StateError('crypto module not a JSObject'),
+};
 
 String _generateKey() {
   final bytes = _crypto.randomBytes(32).toDart;

@@ -54,7 +54,7 @@ export interface DbError {
   readonly message: string;
 }
 
-function stringField(
+export function stringField(
   record: Readonly<Record<string, unknown>>,
   key: string,
 ): string {
@@ -62,7 +62,7 @@ function stringField(
   return typeof value === 'string' ? value : '';
 }
 
-function numberField(
+export function numberField(
   record: Readonly<Record<string, unknown>>,
   key: string,
 ): number {
@@ -70,7 +70,7 @@ function numberField(
   return typeof value === 'number' ? value : 0;
 }
 
-function boolField(
+export function boolField(
   record: Readonly<Record<string, unknown>>,
   key: string,
 ): boolean {
@@ -78,7 +78,7 @@ function boolField(
   return typeof value === 'boolean' ? value : false;
 }
 
-function nullableStringField(
+export function nullableStringField(
   record: Readonly<Record<string, unknown>>,
   key: string,
 ): string | null {
@@ -86,7 +86,7 @@ function nullableStringField(
   return typeof value === 'string' ? value : null;
 }
 
-function nullableNumberField(
+export function nullableNumberField(
   record: Readonly<Record<string, unknown>>,
   key: string,
 ): number | null {
@@ -94,7 +94,7 @@ function nullableNumberField(
   return typeof value === 'number' ? value : null;
 }
 
-function nullableBoolField(
+export function nullableBoolField(
   record: Readonly<Record<string, unknown>>,
   key: string,
 ): boolean | null {
@@ -102,13 +102,13 @@ function nullableBoolField(
   return typeof value === 'boolean' ? value : null;
 }
 
-function isRecord(
+export function isRecord(
   value: unknown,
 ): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseArray<T>(
+export function parseArray<T>(
   data: unknown,
   mapper: (raw: Readonly<Record<string, unknown>>) => T,
 ): T[] {

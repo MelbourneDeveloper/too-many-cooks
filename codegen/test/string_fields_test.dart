@@ -39,7 +39,7 @@ void main() {
 
   test('emits Dart toJson for string fields', () {
     final dart = emitDart(parseOrFail(_schema));
-    expect(dart, contains('String userToJson(User user)'));
+    expect(dart, contains('Map<String, Object?> userToJson(User user)'));
   });
 
   test('emits Dart fromJson for string fields', () {

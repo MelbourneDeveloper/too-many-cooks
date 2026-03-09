@@ -152,12 +152,12 @@ CallToolResult _update(
 
 CallToolResult _get(TooManyCooksDb db, String agentName) =>
     switch (db.getPlan(agentName)) {
-      Success(:final value) when value == null => (
-        content: <Object>[textContent('{"plan":null}')],
+      Success(value: final AgentPlan v) => (
+        content: <Object>[textContent('{"plan":${agentPlanToJson(v)}}')],
         isError: false,
       ),
-      Success(:final value) => (
-        content: <Object>[textContent('{"plan":${agentPlanToJson(value!)}}')],
+      Success() => (
+        content: <Object>[textContent('{"plan":null}')],
         isError: false,
       ),
       Error(:final error) => _errorResult(error),

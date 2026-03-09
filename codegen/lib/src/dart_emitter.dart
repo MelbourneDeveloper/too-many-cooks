@@ -44,17 +44,27 @@ void _emitToJson(StringBuffer buf, ModelDef model) {
   final paramName = _lowerFirst(model.name);
   final fnName = '${_lowerFirst(model.name)}ToJson';
   buf
-    ..writeln('/// Serialize ${model.name} to JSON string.')
-    ..writeln('String $fnName(${model.name} $paramName) =>');
+    ..writeln('/// Serialize ${model.name} to a JSON-compatible map.')
+    ..writeln('Map<String, Object?> $fnName(${model.name} $paramName) => {');
 
-  final parts = <String>[];
   for (final field in model.fields) {
     final snakeKey = toSnakeCase(field.name);
     final accessor = '$paramName.${field.name}';
-    parts.add(_jsonFieldExpr(snakeKey, accessor, field.type, field.required));
+    if (!field.required) {
+      final valueExpr = _mapValueExprNullable(
+        accessor,
+        field.type,
+      );
+      buf.writeln(
+        "  if ($accessor case final v?) '$snakeKey': $valueExpr,",
+      );
+    } else {
+      final valueExpr = _mapValueExpr(accessor, field.type);
+      buf.writeln("  '$snakeKey': $valueExpr,");
+    }
   }
 
-  buf.writeln("    '{${parts.join(',')}}';\n");
+  buf.writeln('};\n');
 }
 
 void _emitFromJson(StringBuffer buf, ModelDef model) {
@@ -86,34 +96,20 @@ String _dartType(FieldType type, bool isRequired) {
   return isRequired ? base : '$base?';
 }
 
-String _jsonFieldExpr(
-  String key,
+String _mapValueExpr(String accessor, FieldType type) =>
+    switch (type) {
+      StringField() || IntField() || DoubleField() || BoolField() =>
+        accessor,
+      ArrayField(:final items) =>
+        '$accessor.map((e) => ${_mapValueExpr("e", items)}).toList()',
+      RefField(:final modelName) =>
+        '${_lowerFirst(modelName)}ToJson($accessor)',
+    };
+
+String _mapValueExprNullable(
   String accessor,
   FieldType type,
-  bool isRequired,
-) {
-  if (!isRequired) {
-    return _nullableJsonField(key, accessor, type);
-  }
-  return '"$key":${_jsonValueExpr(accessor, type)}';
-}
-
-String _nullableJsonField(String key, String accessor, FieldType type) {
-  final unwrapped = '$accessor!';
-  return '\${$accessor != null '
-      "? ',\"$key\":${_jsonValueExpr(unwrapped, type)}' "
-      ": ''}";
-}
-
-String _jsonValueExpr(String accessor, FieldType type) => switch (type) {
-  StringField() => '"\${$accessor}"',
-  IntField() || DoubleField() || BoolField() => '\${$accessor}',
-  ArrayField(:final items) =>
-    '[\${$accessor.map((e) => '
-    '${_jsonValueExpr("e", items)}).join(",")}]',
-  RefField(:final modelName) =>
-    '\${${_lowerFirst(modelName)}ToJson($accessor)}',
-};
+) => _mapValueExpr('v', type);
 
 String _fromJsonExpr(String accessor, FieldType type, bool isRequired) {
   if (!isRequired) return _nullableFromJson(accessor, type);

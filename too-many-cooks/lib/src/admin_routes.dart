@@ -85,12 +85,11 @@ void registerAdminRoutes(
   AdminEventHub hub,
 ) {
   // JSON body parser
-  // requireModule returns JSAny which must be accessed via JSObject for
-  // extension type; this is a JS interop boundary cast.
-  // ignore: no_casts
-  final expressModule = requireModule('express') as JSObject;
-  final jsonFn = expressModule['json'];
-  final jsonMiddleware = switch (jsonFn) {
+  final expressModule = switch (requireModule('express')) {
+    final JSObject obj => obj,
+    _ => throw StateError('express module not a JSObject'),
+  };
+  final jsonMiddleware = switch (expressModule['json']) {
     final JSFunction f => f.callAsFunction(expressModule),
     _ => null,
   };
