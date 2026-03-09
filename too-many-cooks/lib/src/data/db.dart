@@ -1014,15 +1014,22 @@ Result<AgentRegistration, DbError> _adminResetKey(
 
 Result<void, DbError> _adminReset(Database db, Logger log) {
   log.warn('Admin resetting transient data');
-  return switch (db.exec('''
-    DELETE FROM plans;
-    DELETE FROM messages;
-    DELETE FROM locks;
-  ''')) {
-    Success() => const Success(null),
-    Error(:final error) =>
-      Error((code: errDatabase, message: error)),
-  };
+  // Execute each statement separately — the Dart wrapper may not
+  // reliably run multi-statement SQL in a single exec() call.
+  for (final sql in [
+    'DELETE FROM plans',
+    'DELETE FROM messages',
+    'DELETE FROM locks',
+    'UPDATE identity SET active = 0',
+  ]) {
+    switch (db.exec(sql)) {
+      case Success():
+        continue;
+      case Error(:final error):
+        return Error((code: errDatabase, message: error));
+    }
+  }
+  return const Success(null);
 }
 
 Result<String, DbError> _adminSendMessage(

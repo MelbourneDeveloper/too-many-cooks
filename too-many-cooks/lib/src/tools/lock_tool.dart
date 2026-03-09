@@ -282,7 +282,12 @@ CallToolResult _forceRelease(
         isError: false,
       );
     }(),
-    Error(:final error) => _errorResult(error),
+    Error(:final error) => (
+      content: <Object>[
+        textContent(jsonEncode({'error': error.message})),
+      ],
+      isError: true,
+    ),
   };
 }
 
