@@ -95,9 +95,9 @@ export class StoreManager {
     });
   }
 
-  // Test-only: corrupt the cached MCP session ID to
-  // simulate a server restart. The next callTool should
-  // detect the stale session and transparently reconnect.
+  // Test-only: Corrupt the cached MCP session ID to
+  // Simulate a server restart. The next callTool will
+  // Detect the stale session and transparently reconnect.
   public invalidateMcpSession(): void {
     this.mcpSessionId = 'stale-session-00000000';
   }
@@ -158,7 +158,7 @@ export class StoreManager {
       return await this.doCallTool(name, args);
     } catch {
       // Session may be stale (server restarted). Clear
-      // and retry once with a fresh session.
+      // It and retry once with a fresh session.
       this.log('[StoreManager] callTool failed — retrying with fresh session');
       this.mcpSessionId = null;
       try {

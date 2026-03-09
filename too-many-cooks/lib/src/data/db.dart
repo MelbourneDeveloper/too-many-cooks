@@ -1028,12 +1028,11 @@ Result<AgentRegistration, DbError> _adminResetKey(
 }
 
 Result<void, DbError> _adminReset(Database db, Logger log) {
-  log.warn('Admin resetting all data');
+  log.warn('Admin resetting transient data');
   return switch (db.exec('''
     DELETE FROM plans;
     DELETE FROM messages;
     DELETE FROM locks;
-    DELETE FROM identity;
   ''')) {
     Success() => const Success(null),
     Error(:final error) =>
