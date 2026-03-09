@@ -32,8 +32,8 @@ void main() {
 
   test('Dart toJson wraps nullable fields in null check', () {
     final dart = emitDart(parseOrFail(_schema));
-    expect(dart, contains('item.label case final v?'));
-    expect(dart, contains('item.score case final v?'));
+    expect(dart, contains("'label': ?item.label"));
+    expect(dart, contains("'score': ?item.score"));
   });
 
   test('Dart fromJson returns null for nullable fields', () {

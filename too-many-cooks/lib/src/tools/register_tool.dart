@@ -1,6 +1,8 @@
 /// Register tool - agent registration and reconnection.
 library;
 
+import 'dart:convert' show jsonEncode;
+
 import 'package:dart_logging/dart_logging.dart';
 import 'package:dart_node_mcp/dart_node_mcp.dart';
 import 'package:nadz/nadz.dart';
@@ -65,7 +67,7 @@ ToolCallback createRegisterHandler(
     return (
       content: <Object>[
         textContent(
-          '{"error":"validation: pass name OR key, not both"}',
+          jsonEncode({'error': 'validation: pass name OR key, not both'}),
         ),
       ],
       isError: true,
@@ -75,7 +77,7 @@ ToolCallback createRegisterHandler(
     return (
       content: <Object>[
         textContent(
-          '{"error":"missing_parameter: name or key required"}',
+          jsonEncode({'error': 'missing_parameter: name or key required'}),
         ),
       ],
       isError: true,
@@ -94,7 +96,7 @@ ToolCallback createRegisterHandler(
         return (
           content: <Object>[
             textContent(
-              '{"agent_name":"$value","agent_key":"$keyArg"}',
+              jsonEncode({'agent_name': value, 'agent_key': keyArg}),
             ),
           ],
           isError: false,
@@ -103,7 +105,9 @@ ToolCallback createRegisterHandler(
       Error(:final error) => () {
         log.warn('Reconnect failed: ${error.code}');
         return (
-          content: <Object>[textContent(dbErrorToJson(error))],
+          content: <Object>[
+            textContent(jsonEncode(dbErrorToJson(error))),
+          ],
           isError: true,
         );
       }(),
@@ -127,7 +131,7 @@ ToolCallback createRegisterHandler(
       log.info('Agent registered: ${value.agentName}');
       return (
         content: <Object>[
-          textContent(agentRegistrationToJson(value)),
+          textContent(jsonEncode(agentRegistrationToJson(value))),
         ],
         isError: false,
       );
@@ -135,7 +139,9 @@ ToolCallback createRegisterHandler(
     Error(:final error) => () {
       log.warn('Registration failed: ${error.code}');
       return (
-        content: <Object>[textContent(dbErrorToJson(error))],
+        content: <Object>[
+          textContent(jsonEncode(dbErrorToJson(error))),
+        ],
         isError: true,
       );
     }(),

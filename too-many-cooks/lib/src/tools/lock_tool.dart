@@ -65,7 +65,9 @@ ToolCallback createLockHandler(
   if (actionArg == null || actionArg is! String) {
     return (
       content: <Object>[
-        textContent('{"error":"missing_parameter: action is required"}'),
+        textContent(
+          jsonEncode({'error': 'missing_parameter: action is required'}),
+        ),
       ],
       isError: true,
     );
@@ -109,7 +111,9 @@ ToolCallback createLockHandler(
     if (session == null) {
       return (
         content: <Object>[
-          textContent('{"error":"not_registered: call register first"}'),
+          textContent(
+            jsonEncode({'error': 'not_registered: call register first'}),
+          ),
         ],
         isError: true,
       );
@@ -148,7 +152,9 @@ ToolCallback createLockHandler(
       config.lockTimeoutMs,
     ),
     _ => (
-      content: <Object>[textContent('{"error":"Unknown action: $action"}')],
+      content: <Object>[
+        textContent(jsonEncode({'error': 'Unknown action: $action'})),
+      ],
       isError: true,
     ),
   };
@@ -167,7 +173,9 @@ CallToolResult _acquire(
   if (filePath == null) {
     return (
       content: <Object>[
-        textContent('{"error":"acquire requires file_path"}'),
+        textContent(
+          jsonEncode({'error': 'acquire requires file_path'}),
+        ),
       ],
       isError: true,
     );
@@ -189,12 +197,16 @@ CallToolResult _acquire(
       });
       log.info('Lock acquired on $filePath by $agentName');
       return (
-        content: <Object>[textContent(lockResultToJson(value))],
+        content: <Object>[
+          textContent(jsonEncode(lockResultToJson(value))),
+        ],
         isError: false,
       );
     }(),
     Success(:final value) => (
-      content: <Object>[textContent(lockResultToJson(value))],
+      content: <Object>[
+        textContent(jsonEncode(lockResultToJson(value))),
+      ],
       isError: true,
     ),
     Error(:final error) => _errorResult(error),
@@ -212,7 +224,9 @@ CallToolResult _release(
   if (filePath == null) {
     return (
       content: <Object>[
-        textContent('{"error":"release requires file_path"}'),
+        textContent(
+          jsonEncode({'error': 'release requires file_path'}),
+        ),
       ],
       isError: true,
     );
@@ -225,7 +239,9 @@ CallToolResult _release(
       });
       log.info('Lock released on $filePath by $agentName');
       return (
-        content: <Object>[textContent('{"released":true}')],
+        content: <Object>[
+          textContent(jsonEncode({'released': true})),
+        ],
         isError: false,
       );
     }(),
@@ -244,7 +260,9 @@ CallToolResult _forceRelease(
   if (filePath == null) {
     return (
       content: <Object>[
-        textContent('{"error":"force_release requires file_path"}'),
+        textContent(
+          jsonEncode({'error': 'force_release requires file_path'}),
+        ),
       ],
       isError: true,
     );
@@ -258,7 +276,9 @@ CallToolResult _forceRelease(
       });
       log.warn('Lock force-released on $filePath by $agentName');
       return (
-        content: <Object>[textContent('{"released":true}')],
+        content: <Object>[
+          textContent(jsonEncode({'released': true})),
+        ],
         isError: false,
       );
     }(),
@@ -278,7 +298,9 @@ CallToolResult _renew(
   if (filePath == null) {
     return (
       content: <Object>[
-        textContent('{"error":"renew requires file_path"}'),
+        textContent(
+          jsonEncode({'error': 'renew requires file_path'}),
+        ),
       ],
       isError: true,
     );
@@ -293,7 +315,9 @@ CallToolResult _renew(
       });
       log.debug('Lock renewed on $filePath by $agentName');
       return (
-        content: <Object>[textContent('{"renewed":true}')],
+        content: <Object>[
+          textContent(jsonEncode({'renewed': true})),
+        ],
         isError: false,
       );
     }(),
@@ -304,19 +328,25 @@ CallToolResult _renew(
 CallToolResult _query(TooManyCooksDb db, String? filePath) {
   if (filePath == null) {
     return (
-      content: <Object>[textContent('{"error":"query requires file_path"}')],
+      content: <Object>[
+        textContent(jsonEncode({'error': 'query requires file_path'})),
+      ],
       isError: true,
     );
   }
   return switch (db.queryLock(filePath)) {
     Success(value: final FileLock v) => (
       content: <Object>[
-        textContent('{"locked":true,"lock":${fileLockToJson(v)}}'),
+        textContent(
+          jsonEncode({'locked': true, 'lock': fileLockToJson(v)}),
+        ),
       ],
       isError: false,
     ),
     Success() => (
-      content: <Object>[textContent('{"locked":false}')],
+      content: <Object>[
+        textContent(jsonEncode({'locked': false})),
+      ],
       isError: false,
     ),
     Error(:final error) => _errorResult(error),
@@ -326,12 +356,16 @@ CallToolResult _query(TooManyCooksDb db, String? filePath) {
 CallToolResult _list(TooManyCooksDb db) => switch (db.listLocks()) {
   Success(:final value) => (
     content: <Object>[
-      textContent('{"locks":[${value.map(fileLockToJson).join(',')}]}'),
+      textContent(
+        jsonEncode({'locks': value.map(fileLockToJson).toList()}),
+      ),
     ],
     isError: false,
   ),
   Error(:final error) => _errorResult(error),
 };
 
-CallToolResult _errorResult(DbError e) =>
-    (content: <Object>[textContent(dbErrorToJson(e))], isError: true);
+CallToolResult _errorResult(DbError e) => (
+      content: <Object>[textContent(jsonEncode(dbErrorToJson(e)))],
+      isError: true,
+    );

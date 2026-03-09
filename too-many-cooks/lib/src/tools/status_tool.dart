@@ -1,6 +1,8 @@
 /// Status tool - system overview.
 library;
 
+import 'dart:convert' show jsonEncode;
+
 import 'package:dart_logging/dart_logging.dart';
 import 'package:dart_node_mcp/dart_node_mcp.dart';
 import 'package:nadz/nadz.dart';
@@ -27,45 +29,34 @@ ToolCallback createStatusHandler(TooManyCooksDb db, Logger logger) =>
     (args, meta) async {
       final log = logger.child({'tool': 'status'});
 
-      // Get agents
-      final agentsResult = db.listAgents();
-      if (agentsResult case Error(:final error)) {
-        return _errorResult(error);
-      }
-      final String agents;
-      switch (agentsResult) {
+      final List<Map<String, Object?>> agents;
+      switch (db.listAgents()) {
         case Success(:final value):
-          agents = value.map(agentIdentityToJson).join(',');
+          agents = value.map(agentIdentityToJson).toList();
         case Error(:final error):
           return _errorResult(error);
       }
 
-      // Get locks
-      final locksResult = db.listLocks();
-      final String locks;
-      switch (locksResult) {
+      final List<Map<String, Object?>> locks;
+      switch (db.listLocks()) {
         case Success(:final value):
-          locks = value.map(fileLockToJson).join(',');
+          locks = value.map(fileLockToJson).toList();
         case Error(:final error):
           return _errorResult(error);
       }
 
-      // Get plans
-      final plansResult = db.listPlans();
-      final String plans;
-      switch (plansResult) {
+      final List<Map<String, Object?>> plans;
+      switch (db.listPlans()) {
         case Success(:final value):
-          plans = value.map(agentPlanToJson).join(',');
+          plans = value.map(agentPlanToJson).toList();
         case Error(:final error):
           return _errorResult(error);
       }
 
-      // Get messages
-      final messagesResult = db.listAllMessages();
-      final String messages;
-      switch (messagesResult) {
+      final List<Map<String, Object?>> messages;
+      switch (db.listAllMessages()) {
         case Success(:final value):
-          messages = value.map(messageToJson).join(',');
+          messages = value.map(messageToJson).toList();
         case Error(:final error):
           return _errorResult(error);
       }
@@ -74,14 +65,18 @@ ToolCallback createStatusHandler(TooManyCooksDb db, Logger logger) =>
 
       return (
         content: <Object>[
-          textContent(
-            '{"agents":[$agents],"locks":[$locks],'
-            '"plans":[$plans],"messages":[$messages]}',
-          ),
+          textContent(jsonEncode({
+            'agents': agents,
+            'locks': locks,
+            'plans': plans,
+            'messages': messages,
+          })),
         ],
         isError: false,
       );
     };
 
-CallToolResult _errorResult(DbError e) =>
-    (content: <Object>[textContent(dbErrorToJson(e))], isError: true);
+CallToolResult _errorResult(DbError e) => (
+      content: <Object>[textContent(jsonEncode(dbErrorToJson(e)))],
+      isError: true,
+    );

@@ -1,6 +1,8 @@
 /// Plan tool - agent plan management.
 library;
 
+import 'dart:convert' show jsonEncode;
+
 import 'package:dart_logging/dart_logging.dart';
 import 'package:dart_node_mcp/dart_node_mcp.dart';
 import 'package:nadz/nadz.dart';
@@ -58,7 +60,9 @@ ToolCallback createPlanHandler(
   if (actionArg == null || actionArg is! String) {
     return (
       content: <Object>[
-        textContent('{"error":"missing_parameter: action is required"}'),
+        textContent(
+          jsonEncode({'error': 'missing_parameter: action is required'}),
+        ),
       ],
       isError: true,
     );
@@ -89,7 +93,9 @@ ToolCallback createPlanHandler(
     if (session == null) {
       return (
         content: <Object>[
-          textContent('{"error":"not_registered: call register first"}'),
+          textContent(
+            jsonEncode({'error': 'not_registered: call register first'}),
+          ),
         ],
         isError: true,
       );
@@ -110,7 +116,9 @@ ToolCallback createPlanHandler(
     ),
     'get' => _get(db, agentName),
     _ => (
-      content: <Object>[textContent('{"error":"Unknown action: $action"}')],
+      content: <Object>[
+        textContent(jsonEncode({'error': 'Unknown action: $action'})),
+      ],
       isError: true,
     ),
   };
@@ -128,7 +136,9 @@ CallToolResult _update(
   if (goal == null || currentTask == null) {
     return (
       content: <Object>[
-        textContent('{"error":"update requires goal, current_task"}'),
+        textContent(
+          jsonEncode({'error': 'update requires goal, current_task'}),
+        ),
       ],
       isError: true,
     );
@@ -142,7 +152,7 @@ CallToolResult _update(
       });
       log.info('Plan updated for $agentName: $currentTask');
       return (
-        content: <Object>[textContent('{"updated":true}')],
+        content: <Object>[textContent(jsonEncode({'updated': true}))],
         isError: false,
       );
     }(),
@@ -153,11 +163,13 @@ CallToolResult _update(
 CallToolResult _get(TooManyCooksDb db, String agentName) =>
     switch (db.getPlan(agentName)) {
       Success(value: final AgentPlan v) => (
-        content: <Object>[textContent('{"plan":${agentPlanToJson(v)}}')],
+        content: <Object>[
+          textContent(jsonEncode({'plan': agentPlanToJson(v)})),
+        ],
         isError: false,
       ),
       Success() => (
-        content: <Object>[textContent('{"plan":null}')],
+        content: <Object>[textContent(jsonEncode({'plan': null}))],
         isError: false,
       ),
       Error(:final error) => _errorResult(error),
@@ -166,12 +178,16 @@ CallToolResult _get(TooManyCooksDb db, String agentName) =>
 CallToolResult _list(TooManyCooksDb db) => switch (db.listPlans()) {
   Success(:final value) => (
     content: <Object>[
-      textContent('{"plans":[${value.map(agentPlanToJson).join(',')}]}'),
+      textContent(
+        jsonEncode({'plans': value.map(agentPlanToJson).toList()}),
+      ),
     ],
     isError: false,
   ),
   Error(:final error) => _errorResult(error),
 };
 
-CallToolResult _errorResult(DbError e) =>
-    (content: <Object>[textContent(dbErrorToJson(e))], isError: true);
+CallToolResult _errorResult(DbError e) => (
+      content: <Object>[textContent(jsonEncode(dbErrorToJson(e)))],
+      isError: true,
+    );

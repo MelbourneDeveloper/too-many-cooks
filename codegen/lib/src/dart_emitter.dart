@@ -51,13 +51,18 @@ void _emitToJson(StringBuffer buf, ModelDef model) {
     final snakeKey = toSnakeCase(field.name);
     final accessor = '$paramName.${field.name}';
     if (!field.required) {
-      final valueExpr = _mapValueExprNullable(
-        accessor,
-        field.type,
-      );
-      buf.writeln(
-        "  if ($accessor case final v?) '$snakeKey': $valueExpr,",
-      );
+      switch (field.type) {
+        case StringField() ||
+             IntField() ||
+             DoubleField() ||
+             BoolField():
+          buf.writeln("  '$snakeKey': ?$accessor,");
+        case ArrayField() || RefField():
+          final valueExpr = _mapValueExprNullable(accessor, field.type);
+          buf.writeln(
+            "  if ($accessor case final v?) '$snakeKey': $valueExpr,",
+          );
+      }
     } else {
       final valueExpr = _mapValueExpr(accessor, field.type);
       buf.writeln("  '$snakeKey': $valueExpr,");
@@ -109,7 +114,13 @@ String _mapValueExpr(String accessor, FieldType type) =>
 String _mapValueExprNullable(
   String accessor,
   FieldType type,
-) => _mapValueExpr('v', type);
+) => switch (type) {
+  StringField() || IntField() || DoubleField() || BoolField() => 'v',
+  ArrayField(:final items) =>
+    'v.map((e) => ${_mapValueExpr("e", items)}).toList()',
+  RefField(:final modelName) =>
+    '${_lowerFirst(modelName)}ToJson(v)',
+};
 
 String _fromJsonExpr(String accessor, FieldType type, bool isRequired) {
   if (!isRequired) return _nullableFromJson(accessor, type);

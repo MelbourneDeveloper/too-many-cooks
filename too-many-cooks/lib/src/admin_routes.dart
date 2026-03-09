@@ -5,6 +5,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert' show jsonEncode;
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
@@ -100,31 +101,33 @@ void registerAdminRoutes(
     ..get('/admin/status', handler((req, res) {
       final agents = switch (db.listAgents()) {
         Success(:final value) =>
-          value.map(agentIdentityToJson).join(','),
-        Error() => '',
+          value.map(agentIdentityToJson).toList(),
+        Error() => <Map<String, Object?>>[],
       };
       final locks = switch (db.listLocks()) {
         Success(:final value) =>
-          value.map(fileLockToJson).join(','),
-        Error() => '',
+          value.map(fileLockToJson).toList(),
+        Error() => <Map<String, Object?>>[],
       };
       final plans = switch (db.listPlans()) {
         Success(:final value) =>
-          value.map(agentPlanToJson).join(','),
-        Error() => '',
+          value.map(agentPlanToJson).toList(),
+        Error() => <Map<String, Object?>>[],
       };
       final messages = switch (db.listAllMessages()) {
         Success(:final value) =>
-          value.map(messageToJson).join(','),
-        Error() => '',
+          value.map(messageToJson).toList(),
+        Error() => <Map<String, Object?>>[],
       };
 
       res
         ..set('Content-Type', 'application/json')
-        ..send(
-          '{"agents":[$agents],"locks":[$locks],'
-          '"plans":[$plans],"messages":[$messages]}',
-        );
+        ..send(jsonEncode({
+          'agents': agents,
+          'locks': locks,
+          'plans': plans,
+          'messages': messages,
+        }));
     }))
 
     // POST /admin/delete-lock — force-delete a lock
@@ -144,9 +147,9 @@ void registerAdminRoutes(
             'lock_released',
             {'file_path': filePath},
           );
-          res.send('{"deleted":true}');
+          res.send(jsonEncode({'deleted': true}));
         case Error(:final error):
-          _sendError(res, 400, dbErrorToJson(error));
+          _sendError(res, 400, jsonEncode(dbErrorToJson(error)));
       }
     }))
 
@@ -167,9 +170,9 @@ void registerAdminRoutes(
             'agent_deleted',
             {'agent_name': agentName},
           );
-          res.send('{"deleted":true}');
+          res.send(jsonEncode({'deleted': true}));
         case Error(:final error):
-          _sendError(res, 400, dbErrorToJson(error));
+          _sendError(res, 400, jsonEncode(dbErrorToJson(error)));
       }
     }))
 
@@ -186,9 +189,9 @@ void registerAdminRoutes(
       }
       switch (db.adminResetKey(agentName)) {
         case Success(:final value):
-          res.send(agentRegistrationToJson(value));
+          res.send(jsonEncode(agentRegistrationToJson(value)));
         case Error(:final error):
-          _sendError(res, 400, dbErrorToJson(error));
+          _sendError(res, 400, jsonEncode(dbErrorToJson(error)));
       }
     }))
 
@@ -229,10 +232,10 @@ void registerAdminRoutes(
             'message_id': value,
           });
           res.send(
-            '{"sent":true,"message_id":"$value"}',
+            jsonEncode({'sent': true, 'message_id': value}),
           );
         case Error(:final error):
-          _sendError(res, 400, dbErrorToJson(error));
+          _sendError(res, 400, jsonEncode(dbErrorToJson(error)));
       }
     }))
 
@@ -241,9 +244,9 @@ void registerAdminRoutes(
       switch (db.adminReset()) {
         case Success():
           hub.pushEvent('state_reset', <String, Object?>{});
-          res.send('{"reset":true}');
+          res.send(jsonEncode({'reset': true}));
         case Error(:final error):
-          _sendError(res, 500, dbErrorToJson(error));
+          _sendError(res, 500, jsonEncode(dbErrorToJson(error)));
       }
     }));
 }

@@ -1,6 +1,8 @@
 /// Message tool - inter-agent messaging.
 library;
 
+import 'dart:convert' show jsonEncode;
+
 import 'package:dart_logging/dart_logging.dart';
 import 'package:dart_node_mcp/dart_node_mcp.dart';
 import 'package:nadz/nadz.dart';
@@ -62,7 +64,9 @@ ToolCallback createMessageHandler(
   if (actionArg == null || actionArg is! String) {
     return (
       content: <Object>[
-        textContent('{"error":"missing_parameter: action is required"}'),
+        textContent(
+          jsonEncode({'error': 'missing_parameter: action is required'}),
+        ),
       ],
       isError: true,
     );
@@ -89,7 +93,9 @@ ToolCallback createMessageHandler(
     if (session == null) {
       return (
         content: <Object>[
-          textContent('{"error":"not_registered: call register first"}'),
+          textContent(
+            jsonEncode({'error': 'not_registered: call register first'}),
+          ),
         ],
         isError: true,
       );
@@ -122,7 +128,9 @@ ToolCallback createMessageHandler(
       switch (args['message_id']) { final String v => v, _ => null },
     ),
     _ => (
-      content: <Object>[textContent('{"error":"Unknown action: $action"}')],
+      content: <Object>[
+        textContent(jsonEncode({'error': 'Unknown action: $action'})),
+      ],
       isError: true,
     ),
   };
@@ -140,7 +148,9 @@ CallToolResult _send(
   if (toAgent == null || content == null) {
     return (
       content: <Object>[
-        textContent('{"error":"send requires to_agent and content"}'),
+        textContent(
+          jsonEncode({'error': 'send requires to_agent and content'}),
+        ),
       ],
       isError: true,
     );
@@ -155,7 +165,11 @@ CallToolResult _send(
       }, toAgent);
       log.info('Message sent from $agentName to $toAgent');
       return (
-        content: <Object>[textContent('{"sent":true,"message_id":"$value"}')],
+        content: <Object>[
+          textContent(
+            jsonEncode({'sent': true, 'message_id': value}),
+          ),
+        ],
         isError: false,
       );
     }(),
@@ -171,7 +185,9 @@ CallToolResult _get(
 ) => switch (db.getMessages(agentName, agentKey, unreadOnly: unreadOnly)) {
   Success(:final value) => (
     content: <Object>[
-      textContent('{"messages":[${value.map(messageToJson).join(',')}]}'),
+      textContent(
+        jsonEncode({'messages': value.map(messageToJson).toList()}),
+      ),
     ],
     isError: false,
   ),
@@ -187,19 +203,23 @@ CallToolResult _markRead(
   if (messageId == null) {
     return (
       content: <Object>[
-        textContent('{"error":"mark_read requires message_id"}'),
+        textContent(
+          jsonEncode({'error': 'mark_read requires message_id'}),
+        ),
       ],
       isError: true,
     );
   }
   return switch (db.markRead(messageId, agentName, agentKey)) {
     Success() => (
-      content: <Object>[textContent('{"marked":true}')],
+      content: <Object>[textContent(jsonEncode({'marked': true}))],
       isError: false,
     ),
     Error(:final error) => _errorResult(error),
   };
 }
 
-CallToolResult _errorResult(DbError e) =>
-    (content: <Object>[textContent(dbErrorToJson(e))], isError: true);
+CallToolResult _errorResult(DbError e) => (
+      content: <Object>[textContent(jsonEncode(dbErrorToJson(e)))],
+      isError: true,
+    );

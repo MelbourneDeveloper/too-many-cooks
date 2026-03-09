@@ -59,7 +59,7 @@ Map<String, Object?> fileLockToJson(FileLock fileLock) => {
   'agent_name': fileLock.agentName,
   'acquired_at': fileLock.acquiredAt,
   'expires_at': fileLock.expiresAt,
-  if (fileLock.reason case final v?) 'reason': v,
+  'reason': ?fileLock.reason,
   'version': fileLock.version,
 };
 
@@ -85,7 +85,7 @@ typedef LockResult = ({
 Map<String, Object?> lockResultToJson(LockResult lockResult) => {
   'acquired': lockResult.acquired,
   if (lockResult.lock case final v?) 'lock': fileLockToJson(v),
-  if (lockResult.error case final v?) 'error': v,
+  'error': ?lockResult.error,
 };
 
 
@@ -113,7 +113,7 @@ Map<String, Object?> messageToJson(Message message) => {
   'to_agent': message.toAgent,
   'content': message.content,
   'created_at': message.createdAt,
-  if (message.readAt case final v?) 'read_at': v,
+  'read_at': ?message.readAt,
 };
 
 
