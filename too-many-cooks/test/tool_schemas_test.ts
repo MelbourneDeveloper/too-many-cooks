@@ -2,7 +2,8 @@
 /// Ensures maxLength and other constraints are present
 /// so agents respect limits.
 
-import { describe, it, expect } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert";
 import { MESSAGE_INPUT_SCHEMA } from "../lib/src/tools/message_tool.js";
 import { PLAN_INPUT_SCHEMA } from "../lib/src/tools/plan_tool.js";
 import {
@@ -32,77 +33,81 @@ const desc = (schema: SchemaObj, name: string): string => {
 
 describe("message tool schema", () => {
   it("content has maxLength 200", () => {
-    expect(
+    assert.strictEqual(
       field(MESSAGE_INPUT_SCHEMA as SchemaObj, "content")["maxLength"],
-    ).toBe(200);
+      200,
+    );
   });
 
   it("content description mentions 200 char limit", () => {
-    expect(
-      desc(MESSAGE_INPUT_SCHEMA as SchemaObj, "content"),
-    ).toContain("200");
+    assert.ok(
+      desc(MESSAGE_INPUT_SCHEMA as SchemaObj, "content").includes("200"),
+    );
   });
 });
 
 describe("plan tool schema", () => {
   it("goal has maxLength 100", () => {
-    expect(
+    assert.strictEqual(
       field(PLAN_INPUT_SCHEMA as SchemaObj, "goal")["maxLength"],
-    ).toBe(100);
+      100,
+    );
   });
 
   it("goal description mentions 100 char limit", () => {
-    expect(
-      desc(PLAN_INPUT_SCHEMA as SchemaObj, "goal"),
-    ).toContain("100");
+    assert.ok(
+      desc(PLAN_INPUT_SCHEMA as SchemaObj, "goal").includes("100"),
+    );
   });
 
   it("current_task has maxLength 100", () => {
-    expect(
+    assert.strictEqual(
       field(PLAN_INPUT_SCHEMA as SchemaObj, "current_task")["maxLength"],
-    ).toBe(100);
+      100,
+    );
   });
 
   it("current_task description mentions char limit", () => {
-    expect(
-      desc(PLAN_INPUT_SCHEMA as SchemaObj, "current_task"),
-    ).toContain("100");
+    assert.ok(
+      desc(PLAN_INPUT_SCHEMA as SchemaObj, "current_task").includes("100"),
+    );
   });
 });
 
 describe("register tool schema", () => {
   it("has name field for first registration", () => {
-    expect(props(REGISTER_INPUT_SCHEMA as SchemaObj)).toHaveProperty("name");
+    assert.ok("name" in props(REGISTER_INPUT_SCHEMA as SchemaObj));
   });
 
   it("has key field for reconnect", () => {
-    expect(props(REGISTER_INPUT_SCHEMA as SchemaObj)).toHaveProperty("key");
+    assert.ok("key" in props(REGISTER_INPUT_SCHEMA as SchemaObj));
   });
 
   it("name description says first registration only", () => {
-    expect(
-      desc(REGISTER_INPUT_SCHEMA as SchemaObj, "name"),
-    ).toContain("FIRST");
+    assert.ok(
+      desc(REGISTER_INPUT_SCHEMA as SchemaObj, "name").includes("FIRST"),
+    );
   });
 
   it("key description says reconnect only", () => {
-    expect(
-      desc(REGISTER_INPUT_SCHEMA as SchemaObj, "key"),
-    ).toContain("RECONNECT");
+    assert.ok(
+      desc(REGISTER_INPUT_SCHEMA as SchemaObj, "key").includes("RECONNECT"),
+    );
   });
 
   it("does not require both name and key", () => {
     // Schema should NOT have required: ['name', 'key']
     // Either name or key, not both — validated in handler
-    expect(
+    assert.strictEqual(
       (REGISTER_INPUT_SCHEMA as SchemaObj)["required"],
-    ).toBeUndefined();
+      undefined,
+    );
   });
 
   it("description explains both modes", () => {
     const description = REGISTER_TOOL_CONFIG.description;
-    expect(description).toContain("name");
-    expect(description).toContain("key");
-    expect(description).toContain("RECONNECT");
+    assert.ok(description.includes("name"));
+    assert.ok(description.includes("key"));
+    assert.ok(description.includes("RECONNECT"));
   });
 });

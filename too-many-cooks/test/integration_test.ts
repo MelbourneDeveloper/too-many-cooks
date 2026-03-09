@@ -66,11 +66,11 @@ const waitForServer = async (): Promise<void> => {
   for (let i = 0; i < 30; i++) {
     try {
       const r = await fetch(`${BASE_URL}/admin/status`);
-      if (r.ok) break;
+      if (r.ok) {break;}
     } catch {
       // Not ready yet
     }
-    if (i === 29) throw new Error("Server failed to start");
+    if (i === 29) {throw new Error("Server failed to start");}
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
@@ -94,7 +94,7 @@ const waitForServer = async (): Promise<void> => {
           },
         }),
       });
-      if (r.ok) return;
+      if (r.ok) {return;}
     } catch {
       // MCP endpoint not ready yet
     }
@@ -148,11 +148,11 @@ class McpClient {
       name,
       arguments: args,
     });
-    const content = (result["content"] as unknown[])[0] as Record<
+    const content = (result.content as unknown[])[0] as Record<
       string,
       unknown
     >;
-    return content["text"] as string;
+    return content.text as string;
   }
 
   async callToolRaw(
@@ -180,16 +180,16 @@ class McpClient {
     // Parse Streamable HTTP or JSON
     const json = this.parseMcpResponse(text);
 
-    if ("error" in json && json["error"] !== undefined) {
-      const err = json["error"] as Record<string, unknown>;
-      const message = (err["message"] as string | undefined) ?? "Error";
+    if ("error" in json && json.error !== undefined) {
+      const err = json.error as Record<string, unknown>;
+      const message = (err.message as string | undefined) ?? "Error";
       return {
         isError: true,
         content: [{ type: "text", text: message }],
       };
     }
 
-    return json["result"] as Record<string, unknown>;
+    return json.result as Record<string, unknown>;
   }
 
   private async postMcp(body: string): Promise<Response> {
@@ -209,7 +209,7 @@ class McpClient {
 
     // Capture session ID from response
     const sid = response.headers.get("mcp-session-id");
-    if (sid !== null) this.sessionId = sid;
+    if (sid !== null) {this.sessionId = sid;}
 
     return response;
   }
@@ -237,15 +237,15 @@ const registerAgents = async (
   count: number,
 ): Promise<readonly Agent[]> => {
   const timestamp = Date.now();
-  const registerPromises = Array.from({ length: count }, (_, i) =>
+  const registerPromises = Array.from({ length: count }, async (_, i) =>
     client.callTool("register", { name: `agent${String(timestamp)}_${String(i)}` }),
   );
   const regResults = await Promise.all(registerPromises);
   return regResults.map((r) => {
     const json = JSON.parse(r) as Record<string, unknown>;
     return {
-      name: json["agent_name"] as string,
-      key: json["agent_key"] as string,
+      name: json.agent_name as string,
+      key: json.agent_key as string,
     };
   });
 };
@@ -277,15 +277,15 @@ describe("Too Many Cooks MCP Server Integration", () => {
   });
 
   it("5 agents register concurrently", async () => {
-    const registerPromises = Array.from({ length: 5 }, (_, i) =>
+    const registerPromises = Array.from({ length: 5 }, async (_, i) =>
       client.callTool("register", { name: `agent${String(i)}` }),
     );
     const regResults = await Promise.all(registerPromises);
 
     for (const r of regResults) {
       const json = JSON.parse(r) as Record<string, unknown>;
-      assert.ok(json["agent_name"] !== null && json["agent_name"] !== undefined);
-      assert.ok(json["agent_key"] !== null && json["agent_key"] !== undefined);
+      assert.ok(json.agent_name !== null && json.agent_name !== undefined);
+      assert.ok(json.agent_key !== null && json.agent_key !== undefined);
     }
   });
 
@@ -294,7 +294,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
     const agents = await registerAgents(client, 5);
 
     // All 5 agents acquire locks on different files concurrently
-    const lockPromises = agents.map((a) =>
+    const lockPromises = agents.map(async (a) =>
       client.callTool("lock", {
         action: "acquire",
         file_path: `/src/${a.name}.dart`,
@@ -306,7 +306,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
 
     for (const r of lockResults) {
       const json = JSON.parse(r) as Record<string, unknown>;
-      assert.strictEqual(json["acquired"], true);
+      assert.strictEqual(json.acquired, true);
     }
   });
 
@@ -328,10 +328,10 @@ describe("Too Many Cooks MCP Server Integration", () => {
     ]);
 
     const acquired0 =
-      (JSON.parse(raceResults[0]!) as Record<string, unknown>)["acquired"] ===
+      (JSON.parse(raceResults[0]) as Record<string, unknown>).acquired ===
       true;
     const acquired1 =
-      (JSON.parse(raceResults[1]!) as Record<string, unknown>)["acquired"] ===
+      (JSON.parse(raceResults[1]) as Record<string, unknown>).acquired ===
       true;
 
     // Exactly one should win the race
@@ -341,7 +341,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
   it("5 agents update plans concurrently", async () => {
     const agents = await registerAgents(client, 5);
 
-    const planPromises = agents.map((a) =>
+    const planPromises = agents.map(async (a) =>
       client.callTool("plan", {
         action: "update",
         agent_key: a.key,
@@ -353,14 +353,14 @@ describe("Too Many Cooks MCP Server Integration", () => {
 
     for (const r of results) {
       const json = JSON.parse(r) as Record<string, unknown>;
-      assert.strictEqual(json["updated"], true);
+      assert.strictEqual(json.updated, true);
     }
   });
 
   it("5 agents send messages concurrently", async () => {
     const agents = await registerAgents(client, 5);
 
-    const msgPromises: Promise<string>[] = [];
+    const msgPromises: Array<Promise<string>> = [];
     for (let i = 0; i < agents.length; i++) {
       const sender = agents[i]!;
       const recipient = agents[(i + 1) % agents.length]!;
@@ -377,7 +377,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
 
     for (const r of results) {
       const json = JSON.parse(r) as Record<string, unknown>;
-      assert.strictEqual(json["sent"], true);
+      assert.strictEqual(json.sent, true);
     }
   });
 
@@ -392,7 +392,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
       content: "Broadcast!",
     });
     assert.strictEqual(
-      (JSON.parse(broadcastResult) as Record<string, unknown>)["sent"],
+      (JSON.parse(broadcastResult) as Record<string, unknown>).sent,
       true,
     );
 
@@ -403,7 +403,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
         agent_key: agents[i]!.key,
       });
       const json = JSON.parse(inboxResult) as Record<string, unknown>;
-      const messages = json["messages"] as unknown[];
+      const messages = json.messages as unknown[];
       assert.ok(messages.length > 0);
     }
   });
@@ -446,9 +446,9 @@ describe("Too Many Cooks MCP Server Integration", () => {
     const statusJson = JSON.parse(
       await client.callTool("status", {}),
     ) as Record<string, unknown>;
-    assert.strictEqual((statusJson["agents"] as unknown[]).length, 5);
-    assert.strictEqual((statusJson["locks"] as unknown[]).length, 5);
-    assert.strictEqual((statusJson["plans"] as unknown[]).length, 5);
+    assert.strictEqual((statusJson.agents as unknown[]).length, 5);
+    assert.strictEqual((statusJson.locks as unknown[]).length, 5);
+    assert.strictEqual((statusJson.plans as unknown[]).length, 5);
     // CRITICAL: Status MUST return messages!
     assert.strictEqual(
       "messages" in statusJson,
@@ -456,13 +456,13 @@ describe("Too Many Cooks MCP Server Integration", () => {
       "Status response MUST include messages field",
     );
     assert.strictEqual(
-      (statusJson["messages"] as unknown[]).length,
+      (statusJson.messages as unknown[]).length,
       5,
       "Status MUST return all 5 messages sent",
     );
 
     // Verify message structure
-    const msgs = statusJson["messages"] as Record<string, unknown>[];
+    const msgs = statusJson.messages as Array<Record<string, unknown>>;
     const firstMsg = msgs[0]!;
     assert.ok("id" in firstMsg);
     assert.ok("from_agent" in firstMsg);
@@ -484,7 +484,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
     }
 
     // Release all concurrently
-    const releasePromises = agents.map((a) =>
+    const releasePromises = agents.map(async (a) =>
       client.callTool("lock", {
         action: "release",
         file_path: `/src/${a.name}.dart`,
@@ -495,14 +495,14 @@ describe("Too Many Cooks MCP Server Integration", () => {
 
     for (const r of results) {
       const json = JSON.parse(r) as Record<string, unknown>;
-      assert.strictEqual(json["released"], true);
+      assert.strictEqual(json.released, true);
     }
 
     // Verify no locks remain
     const status = JSON.parse(
       await client.callTool("status", {}),
     ) as Record<string, unknown>;
-    assert.strictEqual((status["locks"] as unknown[]).length, 0);
+    assert.strictEqual((status.locks as unknown[]).length, 0);
   });
 
   // REGRESSION TESTS: Missing parameter validation
@@ -510,34 +510,34 @@ describe("Too Many Cooks MCP Server Integration", () => {
 
   it("register without name or key returns error", async () => {
     const result = await client.callToolRaw("register", {});
-    assert.strictEqual(result["isError"], true);
-    const content = (result["content"] as Record<string, unknown>[])[0]!;
-    const text = content["text"] as string;
+    assert.strictEqual(result.isError, true);
+    const content = (result.content as Array<Record<string, unknown>>)[0]!;
+    const text = content.text as string;
     assert.ok(text.includes("missing_parameter"));
   });
 
   it("lock without action returns error", async () => {
     const result = await client.callToolRaw("lock", {});
-    assert.strictEqual(result["isError"], true);
+    assert.strictEqual(result.isError, true);
   });
 
   it("message without action returns error", async () => {
     const result = await client.callToolRaw("message", {});
-    assert.strictEqual(result["isError"], true);
+    assert.strictEqual(result.isError, true);
   });
 
   it("message without registration returns not_registered", async () => {
     // No register call - session is empty, no hidden args either
     const result = await client.callToolRaw("message", { action: "get" });
-    assert.strictEqual(result["isError"], true);
-    const content = (result["content"] as Record<string, unknown>[])[0]!;
-    const text = content["text"] as string;
+    assert.strictEqual(result.isError, true);
+    const content = (result.content as Array<Record<string, unknown>>)[0]!;
+    const text = content.text as string;
     assert.ok(text.includes("not_registered"));
   });
 
   it("plan without action returns error", async () => {
     const result = await client.callToolRaw("plan", {});
-    assert.strictEqual(result["isError"], true);
+    assert.strictEqual(result.isError, true);
   });
 
   // CRITICAL: One plan per agent - updating replaces, doesn't create new
@@ -557,7 +557,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
     let status = JSON.parse(
       await client.callTool("status", {}),
     ) as Record<string, unknown>;
-    let plans = status["plans"] as unknown[];
+    let plans = status.plans as unknown[];
     assert.strictEqual(plans.length, 1, "Should have exactly 1 plan");
 
     // Update the plan
@@ -572,7 +572,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
     status = JSON.parse(
       await client.callTool("status", {}),
     ) as Record<string, unknown>;
-    plans = status["plans"] as unknown[];
+    plans = status.plans as unknown[];
     assert.strictEqual(
       plans.length,
       1,
@@ -581,8 +581,8 @@ describe("Too Many Cooks MCP Server Integration", () => {
 
     // Verify the plan was actually updated
     const plan = plans[0] as Record<string, unknown>;
-    assert.strictEqual(plan["goal"], "Updated goal");
-    assert.strictEqual(plan["current_task"], "Updated task");
+    assert.strictEqual(plan.goal, "Updated goal");
+    assert.strictEqual(plan.current_task, "Updated task");
   });
 
   it("each agent has exactly one plan after multiple updates", async () => {
@@ -604,7 +604,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
     const status = JSON.parse(
       await client.callTool("status", {}),
     ) as Record<string, unknown>;
-    const plans = status["plans"] as unknown[];
+    const plans = status.plans as unknown[];
     assert.strictEqual(
       plans.length,
       3,
@@ -614,8 +614,8 @@ describe("Too Many Cooks MCP Server Integration", () => {
     // Verify each plan shows the latest update (round 2)
     for (const plan of plans) {
       const p = plan as Record<string, unknown>;
-      assert.strictEqual(p["goal"], "Goal round 2");
-      assert.strictEqual(p["current_task"], "Task round 2");
+      assert.strictEqual(p.goal, "Goal round 2");
+      assert.strictEqual(p.current_task, "Task round 2");
     }
   });
 
@@ -631,7 +631,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
       file_path: filePath,
     });
     let json = JSON.parse(result) as Record<string, unknown>;
-    assert.strictEqual(json["locked"], false);
+    assert.strictEqual(json.locked, false);
 
     // Acquire lock
     await client.callTool("lock", {
@@ -646,8 +646,8 @@ describe("Too Many Cooks MCP Server Integration", () => {
       file_path: filePath,
     });
     json = JSON.parse(result) as Record<string, unknown>;
-    assert.strictEqual(json["locked"], true);
-    assert.ok(json["lock"] !== null && json["lock"] !== undefined);
+    assert.strictEqual(json.locked, true);
+    assert.ok(json.lock !== null && json.lock !== undefined);
   });
 
   it("lock list returns all locks", async () => {
@@ -665,7 +665,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
     // List all locks
     const result = await client.callTool("lock", { action: "list" });
     const json = JSON.parse(result) as Record<string, unknown>;
-    const locks = json["locks"] as unknown[];
+    const locks = json.locks as unknown[];
     assert.strictEqual(locks.length, 3);
   });
 
@@ -688,7 +688,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
       agent_key: agent.key,
     });
     const json = JSON.parse(result) as Record<string, unknown>;
-    assert.strictEqual(json["renewed"], true);
+    assert.strictEqual(json.renewed, true);
   });
 
   it("lock force_release works on expired locks", async () => {
@@ -719,33 +719,33 @@ describe("Too Many Cooks MCP Server Integration", () => {
     // First registration - name only
     const regResult = await client.callTool("register", { name: "recon1" });
     const regJson = JSON.parse(regResult) as Record<string, unknown>;
-    const key = regJson["agent_key"] as string;
+    const key = regJson.agent_key as string;
 
     // Reconnect - key only, no name
     const reconResult = await client.callTool("register", { key });
     const reconJson = JSON.parse(reconResult) as Record<string, unknown>;
-    assert.strictEqual(reconJson["agent_name"], "recon1");
-    assert.strictEqual(reconJson["agent_key"], key);
+    assert.strictEqual(reconJson.agent_name, "recon1");
+    assert.strictEqual(reconJson.agent_key, key);
   });
 
   it("register with both name and key returns error", async () => {
     const regResult = await client.callTool("register", { name: "both1" });
     const regJson = JSON.parse(regResult) as Record<string, unknown>;
-    const key = regJson["agent_key"] as string;
+    const key = regJson.agent_key as string;
 
     // Both name AND key - spec says this is an error
     const result = await client.callToolRaw("register", {
       name: "both1",
       key,
     });
-    assert.strictEqual(result["isError"], true);
+    assert.strictEqual(result.isError, true);
   });
 
   it("register reconnect with invalid key returns error", async () => {
     const result = await client.callToolRaw("register", {
       key: "definitely-not-a-real-key",
     });
-    assert.strictEqual(result["isError"], true);
+    assert.strictEqual(result.isError, true);
   });
 
   // MESSAGE TOOL: mark_read action
@@ -760,7 +760,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
       content: "Test message",
     });
     const sendJson = JSON.parse(sendResult) as Record<string, unknown>;
-    const messageId = sendJson["message_id"] as string;
+    const messageId = sendJson.message_id as string;
 
     // Mark as read
     const result = await client.callTool("message", {
@@ -769,7 +769,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
       message_id: messageId,
     });
     const json = JSON.parse(result) as Record<string, unknown>;
-    assert.strictEqual(json["marked"], true);
+    assert.strictEqual(json.marked, true);
   });
 
   // PLAN TOOL: get and list actions
@@ -791,8 +791,8 @@ describe("Too Many Cooks MCP Server Integration", () => {
       agent_key: agent.key,
     });
     const json = JSON.parse(result) as Record<string, unknown>;
-    const plan = json["plan"] as Record<string, unknown>;
-    assert.strictEqual(plan["goal"], "Test goal");
+    const plan = json.plan as Record<string, unknown>;
+    assert.strictEqual(plan.goal, "Test goal");
   });
 
   it("plan list returns all plans", async () => {
@@ -811,7 +811,7 @@ describe("Too Many Cooks MCP Server Integration", () => {
     // List plans
     const result = await client.callTool("plan", { action: "list" });
     const json = JSON.parse(result) as Record<string, unknown>;
-    const plans = json["plans"] as unknown[];
+    const plans = json.plans as unknown[];
     assert.strictEqual(plans.length, 2);
   });
 });

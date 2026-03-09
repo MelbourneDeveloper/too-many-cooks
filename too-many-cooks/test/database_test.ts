@@ -1,7 +1,9 @@
 /// Tests for database creation and lifecycle.
 
-import { describe, it, expect } from 'vitest';
-import fs from 'node:fs';
+import { describe, it } from "node:test";
+import assert from "node:assert";
+
+import fs from "node:fs";
 
 import {
   type TooManyCooksDb,
@@ -13,8 +15,8 @@ import {
   ERR_LOCK_EXPIRED,
   ERR_VALIDATION,
   ERR_DATABASE,
-} from '../lib/src/data/data.js';
-import { SCHEMA_VERSION } from '../lib/src/data/schema.js';
+} from "../lib/src/data/data.js";
+import { SCHEMA_VERSION } from "../lib/src/data/schema.js";
 
 const deleteIfExists = (path: string): void => {
   try {
@@ -36,14 +38,14 @@ const deleteDirIfExists = (path: string): void => {
   }
 };
 
-describe('database', () => {
-  it('createDb succeeds with valid path', () => {
-    const testDbPath = '.test_create_db.db' as const;
+describe("database", () => {
+  it("createDb succeeds with valid path", () => {
+    const testDbPath = ".test_create_db.db" as const;
     deleteIfExists(testDbPath);
 
     const config = createDataConfig({ dbPath: testDbPath });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
 
     if (result.ok) {
       result.value.close();
@@ -51,14 +53,14 @@ describe('database', () => {
     deleteIfExists(testDbPath);
   });
 
-  it('createDb creates parent directory if needed', () => {
-    const testDir = '.test_nested_dir' as const;
+  it("createDb creates parent directory if needed", () => {
+    const testDir = ".test_nested_dir" as const;
     const testDbPath = `${testDir}/subdir/data.db`;
     deleteDirIfExists(testDir);
 
     const config = createDataConfig({ dbPath: testDbPath });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
 
     if (result.ok) {
       result.value.close();
@@ -66,32 +68,32 @@ describe('database', () => {
     deleteDirIfExists(testDir);
   });
 
-  it('close succeeds', () => {
-    const testDbPath = '.test_close.db' as const;
+  it("close succeeds", () => {
+    const testDbPath = ".test_close.db" as const;
     deleteIfExists(testDbPath);
 
     const config = createDataConfig({ dbPath: testDbPath });
     const createResult = createDb(config);
-    expect(createResult.ok).toBe(true);
-    if (!createResult.ok) return;
+    assert.strictEqual(createResult.ok, true);
+    if (!createResult.ok) {return;}
     const db = createResult.value;
 
     const closeResult = db.close();
-    expect(closeResult.ok).toBe(true);
+    assert.strictEqual(closeResult.ok, true);
 
     deleteIfExists(testDbPath);
   });
 
-  it('schema version is set correctly', () => {
-    expect(SCHEMA_VERSION).toBe(1);
+  it("schema version is set correctly", () => {
+    assert.strictEqual(SCHEMA_VERSION, 1);
   });
 
-  it('error codes are defined', () => {
-    expect(ERR_NOT_FOUND).toBe('NOT_FOUND');
-    expect(ERR_UNAUTHORIZED).toBe('UNAUTHORIZED');
-    expect(ERR_LOCK_HELD).toBe('LOCK_HELD');
-    expect(ERR_LOCK_EXPIRED).toBe('LOCK_EXPIRED');
-    expect(ERR_VALIDATION).toBe('VALIDATION');
-    expect(ERR_DATABASE).toBe('DATABASE');
+  it("error codes are defined", () => {
+    assert.strictEqual(ERR_NOT_FOUND, "NOT_FOUND");
+    assert.strictEqual(ERR_UNAUTHORIZED, "UNAUTHORIZED");
+    assert.strictEqual(ERR_LOCK_HELD, "LOCK_HELD");
+    assert.strictEqual(ERR_LOCK_EXPIRED, "LOCK_EXPIRED");
+    assert.strictEqual(ERR_VALIDATION, "VALIDATION");
+    assert.strictEqual(ERR_DATABASE, "DATABASE");
   });
 });

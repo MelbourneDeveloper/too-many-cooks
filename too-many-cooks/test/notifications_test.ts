@@ -1,6 +1,7 @@
 /// Tests for notifications - NotificationEmitter.
 
-import { describe, it, expect } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   createNotificationEmitter,
@@ -45,13 +46,13 @@ describe("NotificationEmitter", () => {
 
 describe("Event constants", () => {
   it("event constants have correct values", () => {
-    expect(EVENT_AGENT_REGISTERED).toBe("agent_registered");
-    expect(EVENT_AGENT_ACTIVATED).toBe("agent_activated");
-    expect(EVENT_AGENT_DEACTIVATED).toBe("agent_deactivated");
-    expect(EVENT_LOCK_ACQUIRED).toBe("lock_acquired");
-    expect(EVENT_LOCK_RELEASED).toBe("lock_released");
-    expect(EVENT_LOCK_RENEWED).toBe("lock_renewed");
-    expect(EVENT_MESSAGE_SENT).toBe("message_sent");
-    expect(EVENT_PLAN_UPDATED).toBe("plan_updated");
+    assert.strictEqual(EVENT_AGENT_REGISTERED, "agent_registered");
+    assert.strictEqual(EVENT_AGENT_ACTIVATED, "agent_activated");
+    assert.strictEqual(EVENT_AGENT_DEACTIVATED, "agent_deactivated");
+    assert.strictEqual(EVENT_LOCK_ACQUIRED, "lock_acquired");
+    assert.strictEqual(EVENT_LOCK_RELEASED, "lock_released");
+    assert.strictEqual(EVENT_LOCK_RENEWED, "lock_renewed");
+    assert.strictEqual(EVENT_MESSAGE_SENT, "message_sent");
+    assert.strictEqual(EVENT_PLAN_UPDATED, "plan_updated");
   });
 });

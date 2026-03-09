@@ -9,7 +9,10 @@
 /// BEFORE a reset continues to receive events AFTER the
 /// reset — exactly like the VSIX extension's lifecycle.
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { describe, it, before, after } from "node:test";
+import assert from "node:assert";
+
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 
@@ -30,7 +33,7 @@ const DB_FILES = ['data.db', 'data.db-wal', 'data.db-shm'] as const;
 // Helper: sleep
 // ============================================================
 
-const sleep = (ms: number): Promise<void> =>
+const sleep = async (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 // ============================================================
@@ -67,11 +70,11 @@ const waitForServer = async (): Promise<void> => {
   for (let i = 0; i < 30; i++) {
     try {
       const r = await fetch(`${BASE_URL}/admin/status`);
-      if (r.ok) return;
+      if (r.ok) {return;}
     } catch {
       // Not ready yet
     }
-    if (i === 29) throw new Error('Server failed to start');
+    if (i === 29) {throw new Error('Server failed to start');}
     await sleep(200);
   }
 };
@@ -160,7 +163,7 @@ class AdminSseClient {
           headers,
           signal: client.controller!.signal,
         });
-        if (!response.ok || response.body === null) return;
+        if (!response.ok || response.body === null) {return;}
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -168,7 +171,7 @@ class AdminSseClient {
 
         for (;;) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {break;}
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
@@ -249,9 +252,9 @@ class McpClient {
       arguments: args,
     });
     const content = (
-      result['content'] as Array<Record<string, unknown>>
+      result.content as Array<Record<string, unknown>>
     )[0];
-    return content['text'] as string;
+    return content.text as string;
   }
 
   private async request(
@@ -269,14 +272,14 @@ class McpClient {
     const text = await response.text();
     const json = this.parseMcpResponse(text);
     if ('error' in json) {
-      const err = json['error'] as Record<string, unknown>;
-      const message = (err['message'] as string | undefined) ?? 'Error';
+      const err = json.error as Record<string, unknown>;
+      const message = (err.message as string | undefined) ?? 'Error';
       return {
         isError: true,
         content: [{ type: 'text', text: message }],
       };
     }
-    return json['result'] as Record<string, unknown>;
+    return json.result as Record<string, unknown>;
   }
 
   private async postMcp(body: string): Promise<Response> {
@@ -293,7 +296,7 @@ class McpClient {
       body,
     });
     const sid = response.headers.get('mcp-session-id');
-    if (sid !== null) this.sessionId = sid;
+    if (sid !== null) {this.sessionId = sid;}
     return response;
   }
 
@@ -321,13 +324,13 @@ class McpClient {
 describe('admin_reset_sse_test', () => {
   let serverProcess: ChildProcess;
 
-  beforeAll(async () => {
+  before(async () => {
     deleteDbFiles();
     serverProcess = spawnServer();
     await waitForServer();
   });
 
-  afterAll(() => {
+  after(() => {
     serverProcess.kill();
     deleteDbFiles();
   });
@@ -356,16 +359,17 @@ describe('admin_reset_sse_test', () => {
     const events = await sse.waitForEvents(1);
     sse.close();
 
-    expect(
+    assert.strictEqual(
       events.length > 0,
-    ).toBe(true);
+      true,
+    );
 
     // Verify it's an agent_registered event
     const eventJson = JSON.parse(events[0]) as Record<string, unknown>;
-    const params = eventJson['params'] as
+    const params = eventJson.params as
       | Record<string, unknown>
       | undefined;
-    const data = params?.['data'] as Record<string, unknown> | undefined;
-    expect(data?.['event']).toBe('agent_registered');
+    const data = params?.data as Record<string, unknown> | undefined;
+    assert.strictEqual(data?.event, 'agent_registered');
   });
 });

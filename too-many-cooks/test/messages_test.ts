@@ -1,6 +1,7 @@
 /// Tests for inter-agent messaging.
 
-import { describe, it, beforeEach, afterEach, expect } from "vitest";
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
 import fs from "node:fs";
 import {
   type TooManyCooksDb,
@@ -34,7 +35,7 @@ describe("messages", () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     db = result.value;
 
@@ -59,7 +60,7 @@ describe("messages", () => {
   });
 
   it("sendMessage creates message with ID", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.sendMessage(
       senderName,
@@ -67,14 +68,14 @@ describe("messages", () => {
       receiverName,
       "Hello!",
     );
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     const messageId = result.value;
-    expect(messageId).toHaveLength(16);
+    assert.strictEqual(messageId.length, 16);
   });
 
   it("sendMessage fails with invalid credentials", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.sendMessage(
       senderName,
@@ -82,13 +83,13 @@ describe("messages", () => {
       receiverName,
       "Hello!",
     );
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_UNAUTHORIZED);
+    assert.strictEqual(result.error.code, ERR_UNAUTHORIZED);
   });
 
   it("sendMessage fails for content exceeding max length", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const longContent = "x".repeat(201); // Default max is 200
     const result = db.sendMessage(
@@ -97,30 +98,31 @@ describe("messages", () => {
       receiverName,
       longContent,
     );
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_VALIDATION);
-    expect(result.error.message).toContain("200");
+    assert.strictEqual(result.error.code, ERR_VALIDATION);
+    assert.ok(result.error.message.includes("200"));
   });
 
   it("getMessages returns messages for agent", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.sendMessage(senderName, senderKey, receiverName, "Message 1");
     db.sendMessage(senderName, senderKey, receiverName, "Message 2");
 
     const result = db.getMessages(receiverName, receiverKey);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     const messages = result.value;
-    expect(messages).toHaveLength(2);
-    expect(new Set(messages.map((m) => m.content))).toEqual(
+    assert.strictEqual(messages.length, 2);
+    assert.deepStrictEqual(
+      new Set(messages.map((m) => m.content)),
       new Set(["Message 1", "Message 2"]),
     );
   });
 
   it("getMessages auto-marks messages as read", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.sendMessage(senderName, senderKey, receiverName, "Test message");
 
@@ -131,11 +133,11 @@ describe("messages", () => {
     const result = db.getMessages(receiverName, receiverKey, { unreadOnly: true });
     if (!result.ok) throw new Error("expected ok");
     const messages = result.value;
-    expect(messages).toHaveLength(0);
+    assert.strictEqual(messages.length, 0);
   });
 
   it("getMessages with unreadOnly=false returns all messages", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.sendMessage(senderName, senderKey, receiverName, "Test message");
 
@@ -150,20 +152,20 @@ describe("messages", () => {
     );
     if (!result.ok) throw new Error("expected ok");
     const messages = result.value;
-    expect(messages).toHaveLength(1);
+    assert.strictEqual(messages.length, 1);
   });
 
   it("getMessages fails with invalid credentials", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.getMessages(receiverName, "wrong-key");
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_UNAUTHORIZED);
+    assert.strictEqual(result.error.code, ERR_UNAUTHORIZED);
   });
 
   it("markRead marks specific message", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const sendResult = db.sendMessage(
       senderName,
@@ -175,20 +177,20 @@ describe("messages", () => {
     const messageId = sendResult.value;
 
     const result = db.markRead(messageId, receiverName, receiverKey);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
   });
 
   it("markRead fails for nonexistent message", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.markRead("nonexistent-id", receiverName, receiverKey);
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_NOT_FOUND);
+    assert.strictEqual(result.error.code, ERR_NOT_FOUND);
   });
 
   it("broadcast message reaches all agents", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     // Send broadcast (to_agent = '*' is broadcast)
     db.sendMessage(senderName, senderKey, "*", "Announcement!");
@@ -197,24 +199,24 @@ describe("messages", () => {
     const result = db.getMessages(receiverName, receiverKey);
     if (!result.ok) throw new Error("expected ok");
     const messages = result.value;
-    expect(messages.some((m) => m.content === "Announcement!")).toBe(true);
+    assert.strictEqual(messages.some((m) => m.content === "Announcement!"), true);
   });
 
   it("listAllMessages returns all messages", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.sendMessage(senderName, senderKey, receiverName, "Direct message");
     db.sendMessage(senderName, senderKey, "*", "Broadcast");
 
     const result = db.listAllMessages();
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     const messages = result.value;
-    expect(messages).toHaveLength(2);
+    assert.strictEqual(messages.length, 2);
   });
 
   it("message contains correct metadata", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.sendMessage(senderName, senderKey, receiverName, "Test");
 
@@ -223,10 +225,10 @@ describe("messages", () => {
     const messages = result.value;
     const msg = messages[0]!;
 
-    expect(msg.fromAgent).toBe(senderName);
-    expect(msg.toAgent).toBe(receiverName);
-    expect(msg.content).toBe("Test");
-    expect(msg.createdAt).toBeGreaterThan(0);
-    expect(msg.id).toHaveLength(16);
+    assert.strictEqual(msg.fromAgent, senderName);
+    assert.strictEqual(msg.toAgent, receiverName);
+    assert.strictEqual(msg.content, "Test");
+    assert.ok(msg.createdAt > 0);
+    assert.strictEqual(msg.id.length, 16);
   });
 });

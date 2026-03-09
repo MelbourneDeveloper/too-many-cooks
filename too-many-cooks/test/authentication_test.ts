@@ -1,7 +1,9 @@
 /// Tests for agent authentication.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+
+import fs from "node:fs";
 
 import {
   type TooManyCooksDb,
@@ -10,9 +12,9 @@ import {
   createDataConfig,
   createDb,
   ERR_UNAUTHORIZED,
-} from '../lib/src/data/data.js';
+} from "../lib/src/data/data.js";
 
-const TEST_DB_PATH = '.test_authentication.db' as const;
+const TEST_DB_PATH = ".test_authentication.db" as const;
 
 const deleteIfExists = (path: string): void => {
   try {
@@ -24,14 +26,14 @@ const deleteIfExists = (path: string): void => {
   }
 };
 
-describe('authentication', () => {
+describe("authentication", () => {
   let db: TooManyCooksDb | undefined;
 
   beforeEach(() => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (result.ok) {
       db = result.value;
     }
@@ -42,54 +44,54 @@ describe('authentication', () => {
     deleteIfExists(TEST_DB_PATH);
   });
 
-  it('authenticate succeeds with valid credentials', () => {
-    const regResult = db!.register('auth-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+  it("authenticate succeeds with valid credentials", () => {
+    const regResult = db!.register("auth-agent");
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
 
     const authResult = db!.authenticate(reg.agentName, reg.agentKey);
-    expect(authResult.ok).toBe(true);
-    if (!authResult.ok) return;
-    const agent = authResult.value as AgentIdentity;
-    expect(agent.agentName).toBe('auth-agent');
+    assert.strictEqual(authResult.ok, true);
+    if (!authResult.ok) {return;}
+    const agent = authResult.value;
+    assert.strictEqual(agent.agentName, "auth-agent");
   });
 
-  it('authenticate fails with invalid key', () => {
-    db!.register('auth-agent2');
+  it("authenticate fails with invalid key", () => {
+    db!.register("auth-agent2");
 
-    const authResult = db!.authenticate('auth-agent2', 'wrong-key');
-    expect(authResult.ok).toBe(false);
+    const authResult = db!.authenticate("auth-agent2", "wrong-key");
+    assert.strictEqual(authResult.ok, false);
     if (!authResult.ok) {
-      expect(authResult.error.code).toBe(ERR_UNAUTHORIZED);
+      assert.strictEqual(authResult.error.code, ERR_UNAUTHORIZED);
     }
   });
 
-  it('authenticate fails for nonexistent agent', () => {
-    const authResult = db!.authenticate('nonexistent', 'any-key');
-    expect(authResult.ok).toBe(false);
+  it("authenticate fails for nonexistent agent", () => {
+    const authResult = db!.authenticate("nonexistent", "any-key");
+    assert.strictEqual(authResult.ok, false);
     if (!authResult.ok) {
-      expect(authResult.error.code).toBe(ERR_UNAUTHORIZED);
+      assert.strictEqual(authResult.error.code, ERR_UNAUTHORIZED);
     }
   });
 
-  it('authenticate updates last_active timestamp', () => {
-    const regResult = db!.register('timestamp-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+  it("authenticate updates last_active timestamp", () => {
+    const regResult = db!.register("timestamp-agent");
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
 
     const firstAuth = db!.authenticate(reg.agentName, reg.agentKey);
-    expect(firstAuth.ok).toBe(true);
-    if (!firstAuth.ok) return;
-    const firstAgent = firstAuth.value as AgentIdentity;
+    assert.strictEqual(firstAuth.ok, true);
+    if (!firstAuth.ok) {return;}
+    const firstAgent = firstAuth.value;
 
     // Small delay to ensure timestamp changes
     const secondAuth = db!.authenticate(reg.agentName, reg.agentKey);
-    expect(secondAuth.ok).toBe(true);
-    if (!secondAuth.ok) return;
-    const secondAgent = secondAuth.value as AgentIdentity;
+    assert.strictEqual(secondAuth.ok, true);
+    if (!secondAuth.ok) {return;}
+    const secondAgent = secondAuth.value;
 
-    expect(secondAgent.lastActive).toBeGreaterThanOrEqual(firstAgent.lastActive);
+    assert.ok(secondAgent.lastActive >= firstAgent.lastActive);
   });
 });

@@ -1,6 +1,7 @@
 /// Tests for pure types.
 
-import { describe, it, expect } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert";
 import {
   defaultConfig,
   createDataConfig,
@@ -22,10 +23,10 @@ import {
 describe("TooManyCooksConfig", () => {
   it("defaultConfig has correct values", () => {
     // dbPath is dynamic based on HOME env var, just check it ends correctly
-    expect(defaultConfig.dbPath).toContain(".too_many_cooks/data.db");
-    expect(defaultConfig.lockTimeoutMs).toBe(600000);
-    expect(defaultConfig.maxMessageLength).toBe(200);
-    expect(defaultConfig.maxPlanLength).toBe(100);
+    assert.ok(defaultConfig.dbPath.includes(".too_many_cooks/data.db"));
+    assert.strictEqual(defaultConfig.lockTimeoutMs, 600000);
+    assert.strictEqual(defaultConfig.maxMessageLength, 200);
+    assert.strictEqual(defaultConfig.maxPlanLength, 100);
   });
 
   it("custom config works", () => {
@@ -35,37 +36,38 @@ describe("TooManyCooksConfig", () => {
       maxMessageLength: 500,
       maxPlanLength: 200,
     };
-    expect(config.dbPath).toBe("custom.db");
-    expect(config.lockTimeoutMs).toBe(1000);
+    assert.strictEqual(config.dbPath, "custom.db");
+    assert.strictEqual(config.lockTimeoutMs, 1000);
   });
 
   it("defaultConfig matches data layer defaultConfig", () => {
-    expect(defaultConfig.dbPath).toBe(data.defaultConfig.dbPath);
-    expect(defaultConfig.lockTimeoutMs).toBe(data.defaultConfig.lockTimeoutMs);
-    expect(defaultConfig.maxMessageLength).toBe(
+    assert.strictEqual(defaultConfig.dbPath, data.defaultConfig.dbPath);
+    assert.strictEqual(defaultConfig.lockTimeoutMs, data.defaultConfig.lockTimeoutMs);
+    assert.strictEqual(
+      defaultConfig.maxMessageLength,
       data.defaultConfig.maxMessageLength,
     );
-    expect(defaultConfig.maxPlanLength).toBe(data.defaultConfig.maxPlanLength);
+    assert.strictEqual(defaultConfig.maxPlanLength, data.defaultConfig.maxPlanLength);
   });
 
   it("re-exported getWorkspaceFolder matches data package", () => {
-    expect(getWorkspaceFolder()).toBe(data.getWorkspaceFolder());
+    assert.strictEqual(getWorkspaceFolder(), data.getWorkspaceFolder());
   });
 
   it("re-exported resolveDbPath matches data package", () => {
-    expect(resolveDbPath("/test")).toBe(data.resolveDbPath("/test"));
+    assert.strictEqual(resolveDbPath("/test"), data.resolveDbPath("/test"));
   });
 
   it("re-exported createDataConfigFromWorkspace matches data package", () => {
     const local = createDataConfigFromWorkspace("/test");
     const fromData = data.createDataConfigFromWorkspace("/test");
-    expect(local.dbPath).toBe(fromData.dbPath);
+    assert.strictEqual(local.dbPath, fromData.dbPath);
   });
 
   it("TooManyCooksConfig is identical to TooManyCooksDataConfig", () => {
     const config = createDataConfig({ dbPath: "/test.db" });
     const dataConfig = data.createDataConfig({ dbPath: "/test.db" });
-    expect(config.dbPath).toBe(dataConfig.dbPath);
+    assert.strictEqual(config.dbPath, dataConfig.dbPath);
   });
 });
 
@@ -76,15 +78,15 @@ describe("Types", () => {
       registeredAt: 1234567890,
       lastActive: 1234567899,
     };
-    expect(identity.agentName).toBe("test-agent");
-    expect(identity.registeredAt).toBe(1234567890);
-    expect(identity.lastActive).toBe(1234567899);
+    assert.strictEqual(identity.agentName, "test-agent");
+    assert.strictEqual(identity.registeredAt, 1234567890);
+    assert.strictEqual(identity.lastActive, 1234567899);
   });
 
   it("AgentRegistration can be created", () => {
     const reg = { agentName: "agent1", agentKey: "secret-key-123" };
-    expect(reg.agentName).toBe("agent1");
-    expect(reg.agentKey).toBe("secret-key-123");
+    assert.strictEqual(reg.agentName, "agent1");
+    assert.strictEqual(reg.agentKey, "secret-key-123");
   });
 
   it("FileLock can be created", () => {
@@ -96,10 +98,10 @@ describe("Types", () => {
       reason: "editing",
       version: 1,
     };
-    expect(lock.filePath).toBe("/src/main.dart");
-    expect(lock.agentName).toBe("agent1");
-    expect(lock.reason).toBe("editing");
-    expect(lock.version).toBe(1);
+    assert.strictEqual(lock.filePath, "/src/main.dart");
+    assert.strictEqual(lock.agentName, "agent1");
+    assert.strictEqual(lock.reason, "editing");
+    assert.strictEqual(lock.version, 1);
   });
 
   it("FileLock reason can be null", () => {
@@ -111,7 +113,7 @@ describe("Types", () => {
       reason: undefined,
       version: 1,
     };
-    expect(lock.reason).toBeUndefined();
+    assert.strictEqual(lock.reason, undefined);
   });
 
   it("LockResult acquired true", () => {
@@ -127,9 +129,9 @@ describe("Types", () => {
       },
       error: undefined,
     };
-    expect(result.acquired).toBe(true);
-    expect(result.lock).toBeDefined();
-    expect(result.error).toBeUndefined();
+    assert.strictEqual(result.acquired, true);
+    assert.notStrictEqual(result.lock, undefined);
+    assert.strictEqual(result.error, undefined);
   });
 
   it("LockResult acquired false with error", () => {
@@ -138,9 +140,9 @@ describe("Types", () => {
       lock: undefined,
       error: "Lock held by another agent",
     };
-    expect(result.acquired).toBe(false);
-    expect(result.lock).toBeUndefined();
-    expect(result.error).toBe("Lock held by another agent");
+    assert.strictEqual(result.acquired, false);
+    assert.strictEqual(result.lock, undefined);
+    assert.strictEqual(result.error, "Lock held by another agent");
   });
 
   it("Message can be created", () => {
@@ -152,11 +154,11 @@ describe("Types", () => {
       createdAt: 1000,
       readAt: undefined,
     };
-    expect(msg.id).toBe("msg-123");
-    expect(msg.fromAgent).toBe("agent1");
-    expect(msg.toAgent).toBe("agent2");
-    expect(msg.content).toBe("Hello!");
-    expect(msg.readAt).toBeUndefined();
+    assert.strictEqual(msg.id, "msg-123");
+    assert.strictEqual(msg.fromAgent, "agent1");
+    assert.strictEqual(msg.toAgent, "agent2");
+    assert.strictEqual(msg.content, "Hello!");
+    assert.strictEqual(msg.readAt, undefined);
   });
 
   it("Message with readAt", () => {
@@ -168,7 +170,7 @@ describe("Types", () => {
       createdAt: 1000,
       readAt: 2000,
     };
-    expect(msg.readAt).toBe(2000);
+    assert.strictEqual(msg.readAt, 2000);
   });
 
   it("AgentPlan can be created", () => {
@@ -178,59 +180,59 @@ describe("Types", () => {
       currentTask: "Reviewing code",
       updatedAt: 1000,
     };
-    expect(plan.agentName).toBe("agent1");
-    expect(plan.goal).toBe("Fix all bugs");
-    expect(plan.currentTask).toBe("Reviewing code");
+    assert.strictEqual(plan.agentName, "agent1");
+    assert.strictEqual(plan.goal, "Fix all bugs");
+    assert.strictEqual(plan.currentTask, "Reviewing code");
   });
 
   it("DbError can be created", () => {
     const error = { code: ERR_NOT_FOUND, message: "Agent not found" };
-    expect(error.code).toBe("NOT_FOUND");
-    expect(error.message).toBe("Agent not found");
+    assert.strictEqual(error.code, "NOT_FOUND");
+    assert.strictEqual(error.message, "Agent not found");
   });
 });
 
 describe("Error codes", () => {
   it("errNotFound is correct", () => {
-    expect(ERR_NOT_FOUND).toBe("NOT_FOUND");
+    assert.strictEqual(ERR_NOT_FOUND, "NOT_FOUND");
   });
 
   it("errUnauthorized is correct", () => {
-    expect(ERR_UNAUTHORIZED).toBe("UNAUTHORIZED");
+    assert.strictEqual(ERR_UNAUTHORIZED, "UNAUTHORIZED");
   });
 
   it("errLockHeld is correct", () => {
-    expect(ERR_LOCK_HELD).toBe("LOCK_HELD");
+    assert.strictEqual(ERR_LOCK_HELD, "LOCK_HELD");
   });
 
   it("errLockExpired is correct", () => {
-    expect(ERR_LOCK_EXPIRED).toBe("LOCK_EXPIRED");
+    assert.strictEqual(ERR_LOCK_EXPIRED, "LOCK_EXPIRED");
   });
 
   it("errValidation is correct", () => {
-    expect(ERR_VALIDATION).toBe("VALIDATION");
+    assert.strictEqual(ERR_VALIDATION, "VALIDATION");
   });
 
   it("errDatabase is correct", () => {
-    expect(ERR_DATABASE).toBe("DATABASE");
+    assert.strictEqual(ERR_DATABASE, "DATABASE");
   });
 });
 
 describe("textContent", () => {
   it("creates text content map", () => {
     const content = textContent("Hello world");
-    expect(content.type).toBe("text");
-    expect(content.text).toBe("Hello world");
+    assert.strictEqual(content.type, "text");
+    assert.strictEqual(content.text, "Hello world");
   });
 
   it("handles empty string", () => {
     const content = textContent("");
-    expect(content.type).toBe("text");
-    expect(content.text).toBe("");
+    assert.strictEqual(content.type, "text");
+    assert.strictEqual(content.text, "");
   });
 
   it("handles special characters", () => {
     const content = textContent('{"json": "value"}');
-    expect(content.text).toBe('{"json": "value"}');
+    assert.strictEqual(content.text, '{"json": "value"}');
   });
 });

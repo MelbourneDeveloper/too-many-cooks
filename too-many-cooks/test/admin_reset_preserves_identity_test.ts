@@ -8,7 +8,9 @@
 /// Reset should clear transient data (locks, messages, plans)
 /// but preserve agent identities so agents can reconnect.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+
 import fs from 'node:fs';
 
 import {
@@ -37,7 +39,7 @@ describe('admin_reset_preserves_identity_test', () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (result.ok) {
       db = result.value;
     }
@@ -51,31 +53,31 @@ describe('admin_reset_preserves_identity_test', () => {
   it('agent can reconnect with saved key after adminReset', () => {
     // 1. Register an agent and save the key
     const regResult = db!.register('persistent-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
-    expect(reg.agentKey.length).toBe(64);
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
+    assert.strictEqual(reg.agentKey.length, 64);
 
     // 2. Call adminReset (should clear transient data)
     const resetResult = db!.adminReset();
-    expect(resetResult.ok).toBe(true);
+    assert.strictEqual(resetResult.ok, true);
 
     // 3. Try to reconnect with the saved key
     const lookupResult = db!.lookupByKey(reg.agentKey);
 
     // 4. ASSERT: reconnection MUST succeed
-    expect(lookupResult.ok).toBe(true);
+    assert.strictEqual(lookupResult.ok, true);
     if (lookupResult.ok) {
-      expect(lookupResult.value).toBe('persistent-agent');
+      assert.strictEqual(lookupResult.value, 'persistent-agent');
     }
   });
 
   it('adminReset clears locks and plans', () => {
     // Register and create transient data
     const regResult = db!.register('transient-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
     db!.activate('transient-agent');
     db!.acquireLock(
       'test.dart',
@@ -91,15 +93,15 @@ describe('admin_reset_preserves_identity_test', () => {
 
     // Locks and plans should be empty
     const locksResult = db!.listLocks();
-    expect(locksResult.ok).toBe(true);
+    assert.strictEqual(locksResult.ok, true);
     if (locksResult.ok) {
-      expect(locksResult.value).toHaveLength(0);
+      assert.strictEqual(locksResult.value.length, 0);
     }
 
     const plansResult = db!.listPlans();
-    expect(plansResult.ok).toBe(true);
+    assert.strictEqual(plansResult.ok, true);
     if (plansResult.ok) {
-      expect(plansResult.value).toHaveLength(0);
+      assert.strictEqual(plansResult.value.length, 0);
     }
   });
 });

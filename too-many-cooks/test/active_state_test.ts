@@ -1,6 +1,8 @@
 /// Tests for activate/deactivate agent state.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+
 import fs from 'node:fs';
 
 import {
@@ -31,7 +33,7 @@ describe('active_state_test', () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (result.ok) {
       db = result.value;
     }
@@ -45,14 +47,14 @@ describe('active_state_test', () => {
   it('activate sets agent active', () => {
     db!.register('agent1');
     const result = db!.activate('agent1');
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
   });
 
   it('activate fails for nonexistent agent', () => {
     const result = db!.activate('nonexistent');
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (!result.ok) {
-      expect(result.error.code).toBe(ERR_NOT_FOUND);
+      assert.strictEqual(result.error.code, ERR_NOT_FOUND);
     }
   });
 
@@ -60,14 +62,14 @@ describe('active_state_test', () => {
     db!.register('agent1');
     db!.activate('agent1');
     const result = db!.deactivate('agent1');
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
   });
 
   it('deactivate fails for nonexistent agent', () => {
     const result = db!.deactivate('nonexistent');
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (!result.ok) {
-      expect(result.error.code).toBe(ERR_NOT_FOUND);
+      assert.strictEqual(result.error.code, ERR_NOT_FOUND);
     }
   });
 
@@ -77,31 +79,31 @@ describe('active_state_test', () => {
     db!.activate('agent1');
     db!.activate('agent2');
     const result = db!.deactivateAll();
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
   });
 
   it('deactivateAll succeeds with no agents', () => {
     const result = db!.deactivateAll();
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
   });
 
   it('lookupByKey returns agent name', () => {
     const reg = db!.register('agent1');
-    expect(reg.ok).toBe(true);
-    if (!reg.ok) return;
-    const key = (reg.value as AgentRegistration).agentKey;
+    assert.strictEqual(reg.ok, true);
+    if (!reg.ok) {return;}
+    const key = (reg.value).agentKey;
     const result = db!.lookupByKey(key);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (result.ok) {
-      expect(result.value).toBe('agent1');
+      assert.strictEqual(result.value, 'agent1');
     }
   });
 
   it('lookupByKey fails for invalid key', () => {
     const result = db!.lookupByKey('invalid-key');
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (!result.ok) {
-      expect(result.error.code).toBe(ERR_UNAUTHORIZED);
+      assert.strictEqual(result.error.code, ERR_UNAUTHORIZED);
     }
   });
 });

@@ -1,6 +1,8 @@
 /// Tests for admin operations (no auth required).
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+
 import fs from 'node:fs';
 
 import {
@@ -32,7 +34,7 @@ describe('admin_test', () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (result.ok) {
       db = result.value;
     }
@@ -46,9 +48,9 @@ describe('admin_test', () => {
   it('adminDeleteLock removes lock', () => {
     // Register agent and acquire lock
     const regResult = db!.register('admin-test-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
     db!.acquireLock(
       '/admin/file.dart',
       reg.agentName,
@@ -59,29 +61,29 @@ describe('admin_test', () => {
 
     // Admin deletes lock (no auth required)
     const result = db!.adminDeleteLock('/admin/file.dart');
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
 
     // Verify lock is gone
     const query = db!.queryLock('/admin/file.dart');
     if (query.ok) {
-      expect(query.value).toBeNull();
+      assert.strictEqual(query.value, null);
     }
   });
 
   it('adminDeleteLock fails for nonexistent lock', () => {
     const result = db!.adminDeleteLock('/no/such/lock.dart');
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (!result.ok) {
-      expect(result.error.code).toBe(ERR_NOT_FOUND);
+      assert.strictEqual(result.error.code, ERR_NOT_FOUND);
     }
   });
 
   it('adminDeleteAgent removes agent and all related data', () => {
     // Register agent
     const regResult = db!.register('delete-me-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
 
     // Create agent data: lock, plan, message
     db!.acquireLock(
@@ -95,68 +97,68 @@ describe('admin_test', () => {
 
     // Register another agent to send message
     const reg2Result = db!.register('other-agent');
-    expect(reg2Result.ok).toBe(true);
-    if (!reg2Result.ok) return;
-    const reg2 = reg2Result.value as AgentRegistration;
+    assert.strictEqual(reg2Result.ok, true);
+    if (!reg2Result.ok) {return;}
+    const reg2 = reg2Result.value;
     db!.sendMessage(reg.agentName, reg.agentKey, reg2.agentName, 'Hello');
 
     // Admin deletes agent
     const result = db!.adminDeleteAgent(reg.agentName);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
 
     // Verify agent is gone
     const agents = db!.listAgents();
     if (agents.ok) {
       const agentNames = agents.value.map((a: AgentIdentity) => a.agentName);
-      expect(agentNames).not.toContain('delete-me-agent');
+      assert.ok(!agentNames.includes('delete-me-agent'));
     }
 
     // Verify lock is gone
     const lock = db!.queryLock('/delete/file.dart');
     if (lock.ok) {
-      expect(lock.value).toBeNull();
+      assert.strictEqual(lock.value, null);
     }
 
     // Verify plan is gone
     const plan = db!.getPlan(reg.agentName);
     if (plan.ok) {
-      expect(plan.value).toBeNull();
+      assert.strictEqual(plan.value, null);
     }
   });
 
   it('adminDeleteAgent fails for nonexistent agent', () => {
     const result = db!.adminDeleteAgent('nonexistent-agent');
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (!result.ok) {
-      expect(result.error.code).toBe(ERR_NOT_FOUND);
+      assert.strictEqual(result.error.code, ERR_NOT_FOUND);
     }
   });
 
   it('adminResetKey generates new key', () => {
     // Register agent
     const regResult = db!.register('reset-key-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
     const oldKey = reg.agentKey;
 
     // Reset key
     const result = db!.adminResetKey(reg.agentName);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    const newReg = result.value as AgentRegistration;
+    assert.strictEqual(result.ok, true);
+    if (!result.ok) {return;}
+    const newReg = result.value;
 
-    expect(newReg.agentName).toBe(reg.agentName);
-    expect(newReg.agentKey).not.toBe(oldKey);
-    expect(newReg.agentKey.length).toBe(64);
+    assert.strictEqual(newReg.agentName, reg.agentName);
+    assert.notStrictEqual(newReg.agentKey, oldKey);
+    assert.strictEqual(newReg.agentKey.length, 64);
   });
 
   it('adminResetKey invalidates old key', () => {
     // Register agent
     const regResult = db!.register('invalidate-key-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
     const oldKey = reg.agentKey;
 
     // Reset key
@@ -164,18 +166,18 @@ describe('admin_test', () => {
 
     // Old key should no longer work
     const authResult = db!.authenticate(reg.agentName, oldKey);
-    expect(authResult.ok).toBe(false);
+    assert.strictEqual(authResult.ok, false);
     if (!authResult.ok) {
-      expect(authResult.error.code).toBe(ERR_UNAUTHORIZED);
+      assert.strictEqual(authResult.error.code, ERR_UNAUTHORIZED);
     }
   });
 
   it('adminResetKey releases locks held by agent', () => {
     // Register agent and acquire lock
     const regResult = db!.register('lock-reset-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
     db!.acquireLock(
       '/reset/file.dart',
       reg.agentName,
@@ -190,33 +192,33 @@ describe('admin_test', () => {
     // Lock should be released
     const lock = db!.queryLock('/reset/file.dart');
     if (lock.ok) {
-      expect(lock.value).toBeNull();
+      assert.strictEqual(lock.value, null);
     }
   });
 
   it('adminResetKey fails for nonexistent agent', () => {
     const result = db!.adminResetKey('nonexistent-agent');
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (!result.ok) {
-      expect(result.error.code).toBe(ERR_NOT_FOUND);
+      assert.strictEqual(result.error.code, ERR_NOT_FOUND);
     }
   });
 
   it('new key works after reset', () => {
     // Register agent
     const regResult = db!.register('new-key-works-agent');
-    expect(regResult.ok).toBe(true);
-    if (!regResult.ok) return;
-    const reg = regResult.value as AgentRegistration;
+    assert.strictEqual(regResult.ok, true);
+    if (!regResult.ok) {return;}
+    const reg = regResult.value;
 
     // Reset key
     const resetResult = db!.adminResetKey(reg.agentName);
-    expect(resetResult.ok).toBe(true);
-    if (!resetResult.ok) return;
-    const newReg = resetResult.value as AgentRegistration;
+    assert.strictEqual(resetResult.ok, true);
+    if (!resetResult.ok) {return;}
+    const newReg = resetResult.value;
 
     // New key should work
     const authResult = db!.authenticate(newReg.agentName, newReg.agentKey);
-    expect(authResult.ok).toBe(true);
+    assert.strictEqual(authResult.ok, true);
   });
 });

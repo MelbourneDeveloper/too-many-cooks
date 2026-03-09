@@ -1,6 +1,7 @@
 /// Tests for agent plan operations.
 
-import { describe, it, beforeEach, afterEach, expect } from "vitest";
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
 import fs from "node:fs";
 import {
   type TooManyCooksDb,
@@ -31,7 +32,7 @@ describe("plans", () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     db = result.value;
 
@@ -49,7 +50,7 @@ describe("plans", () => {
   });
 
   it("updatePlan creates new plan", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.updatePlan(
       agentName,
@@ -57,72 +58,72 @@ describe("plans", () => {
       "Fix all bugs",
       "Reading codebase",
     );
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
   });
 
   it("updatePlan updates existing plan", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.updatePlan(agentName, agentKey, "Goal 1", "Task 1");
 
     const result = db.updatePlan(agentName, agentKey, "Goal 2", "Task 2");
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
 
     const getPlan = db.getPlan(agentName);
     if (!getPlan.ok) throw new Error("expected ok");
     const plan = getPlan.value!;
-    expect(plan.goal).toBe("Goal 2");
-    expect(plan.currentTask).toBe("Task 2");
+    assert.strictEqual(plan.goal, "Goal 2");
+    assert.strictEqual(plan.currentTask, "Task 2");
   });
 
   it("updatePlan fails with invalid credentials", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.updatePlan(agentName, "wrong-key", "Goal", "Task");
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_UNAUTHORIZED);
+    assert.strictEqual(result.error.code, ERR_UNAUTHORIZED);
   });
 
   it("updatePlan fails for goal exceeding max length", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const longGoal = "x".repeat(101); // Default max is 100
     const result = db.updatePlan(agentName, agentKey, longGoal, "Task");
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_VALIDATION);
-    expect(result.error.message).toContain("100");
+    assert.strictEqual(result.error.code, ERR_VALIDATION);
+    assert.ok(result.error.message.includes("100"));
   });
 
   it("updatePlan fails for task exceeding max length", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const longTask = "x".repeat(101);
     const result = db.updatePlan(agentName, agentKey, "Goal", longTask);
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_VALIDATION);
+    assert.strictEqual(result.error.code, ERR_VALIDATION);
   });
 
   it("getPlan returns plan for agent", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.updatePlan(agentName, agentKey, "My Goal", "Current Task");
 
     const result = db.getPlan(agentName);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     const plan = result.value;
-    expect(plan).toBeDefined();
-    expect(plan!.agentName).toBe(agentName);
-    expect(plan!.goal).toBe("My Goal");
-    expect(plan!.currentTask).toBe("Current Task");
-    expect(plan!.updatedAt).toBeGreaterThan(0);
+    assert.notStrictEqual(plan, undefined);
+    assert.strictEqual(plan!.agentName, agentName);
+    assert.strictEqual(plan!.goal, "My Goal");
+    assert.strictEqual(plan!.currentTask, "Current Task");
+    assert.ok(plan!.updatedAt > 0);
   });
 
   it("getPlan returns null for agent without plan", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     // Register agent without setting plan
     const reg2 = db.register("no-plan-agent");
@@ -130,14 +131,14 @@ describe("plans", () => {
     const agent2 = reg2.value;
 
     const result = db.getPlan(agent2.agentName);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     const plan = result.value;
-    expect(plan).toBeUndefined();
+    assert.strictEqual(plan, undefined);
   });
 
   it("listPlans returns all plans", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.updatePlan(agentName, agentKey, "Goal 1", "Task 1");
 
@@ -148,17 +149,18 @@ describe("plans", () => {
     db.updatePlan(agent2.agentName, agent2.agentKey, "Goal 2", "Task 2");
 
     const result = db.listPlans();
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     const plans = result.value;
-    expect(plans).toHaveLength(2);
-    expect(new Set(plans.map((p) => p.goal))).toEqual(
+    assert.strictEqual(plans.length, 2);
+    assert.deepStrictEqual(
+      new Set(plans.map((p) => p.goal)),
       new Set(["Goal 1", "Goal 2"]),
     );
   });
 
   it("plan updatedAt changes on update", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.updatePlan(agentName, agentKey, "Goal", "Task 1");
     const getPlan1 = db.getPlan(agentName);
@@ -170,6 +172,6 @@ describe("plans", () => {
     if (!getPlan2.ok) throw new Error("expected ok");
     const plan2 = getPlan2.value;
 
-    expect(plan2!.updatedAt).toBeGreaterThanOrEqual(plan1!.updatedAt);
+    assert.ok(plan2!.updatedAt >= plan1!.updatedAt);
   });
 });

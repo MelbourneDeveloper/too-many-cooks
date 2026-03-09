@@ -1,6 +1,7 @@
 /// Tests for agent registration.
 
-import { describe, it, beforeEach, afterEach, expect } from "vitest";
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
 import fs from "node:fs";
 import {
   type TooManyCooksDb,
@@ -28,7 +29,7 @@ describe("registration", () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     db = result.value;
   });
@@ -39,65 +40,66 @@ describe("registration", () => {
   });
 
   it("register creates agent with key", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.register("test-agent");
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     const reg = result.value;
-    expect(reg.agentName).toBe("test-agent");
-    expect(reg.agentKey).toHaveLength(64);
+    assert.strictEqual(reg.agentName, "test-agent");
+    assert.strictEqual(reg.agentKey.length, 64);
   });
 
   it("register fails for duplicate name", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.register("duplicate-agent");
     const result = db.register("duplicate-agent");
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_VALIDATION);
-    expect(result.error.message).toContain("already registered");
+    assert.strictEqual(result.error.code, ERR_VALIDATION);
+    assert.ok(result.error.message.includes("already registered"));
   });
 
   it("register fails for empty name", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.register("");
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_VALIDATION);
-    expect(result.error.message).toContain("1-50");
+    assert.strictEqual(result.error.code, ERR_VALIDATION);
+    assert.ok(result.error.message.includes("1-50"));
   });
 
   it("register fails for name over 50 chars", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.register("a".repeat(51));
-    expect(result.ok).toBe(false);
+    assert.strictEqual(result.ok, false);
     if (result.ok) throw new Error("expected error");
-    expect(result.error.code).toBe(ERR_VALIDATION);
-    expect(result.error.message).toContain("1-50");
+    assert.strictEqual(result.error.code, ERR_VALIDATION);
+    assert.ok(result.error.message.includes("1-50"));
   });
 
   it("register accepts name of exactly 50 chars", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     const result = db.register("a".repeat(50));
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
   });
 
   it("listAgents returns registered agents", () => {
-    expect(db).toBeDefined();
+    assert.notStrictEqual(db, undefined);
     if (!db) throw new Error("expected db");
     db.register("agent1");
     db.register("agent2");
     const result = db.listAgents();
-    expect(result.ok).toBe(true);
+    assert.strictEqual(result.ok, true);
     if (!result.ok) throw new Error("expected ok");
     const agents = result.value;
-    expect(agents).toHaveLength(2);
-    expect(new Set(agents.map((a) => a.agentName))).toEqual(
+    assert.strictEqual(agents.length, 2);
+    assert.deepStrictEqual(
+      new Set(agents.map((a) => a.agentName)),
       new Set(["agent1", "agent2"]),
     );
   });
