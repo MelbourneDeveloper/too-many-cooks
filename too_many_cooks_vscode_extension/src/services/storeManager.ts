@@ -74,14 +74,14 @@ export class StoreManager {
     }
     this.connected = true;
     await this.refreshStatus();
-    this.connectEventStream();
+    await this.connectEventStream();
     this.store.dispatch({ status: 'connected', type: 'SetConnectionStatus' });
   }
 
-  private connectEventStream(): void {
+  private async connectEventStream(): Promise<void> {
     this.eventAbortController?.abort();
     this.eventAbortController = new AbortController();
-    startAdminEventStream(this.eventAbortController, {
+    await startAdminEventStream(this.eventAbortController, {
       baseUrl: this.baseUrl,
       log: this.log,
       onEvent: (): void => { this.handleAdminEvent(); },
