@@ -1,10 +1,12 @@
 /// Tests for configuration utilities.
 library;
 
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/src/data/data.dart';
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   test('resolveDbPath returns correct path', () {
     final path = resolveDbPath('/workspace/project');
     expect(path, '/workspace/project/.too_many_cooks/data.db');

@@ -12,6 +12,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import 'package:dart_node_core/dart_node_core.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/too_many_cooks.dart' show serverBinary;
 
@@ -27,6 +28,7 @@ const _sessionNotFoundStatus = 404;
 external JSPromise<JSObject> _jsFetch(JSString url, [JSObject? options]);
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   // `late` required by test framework setUpAll/tearDownAll lifecycle.
   // ignore: no_late
   late JSObject serverProcess;

@@ -3,6 +3,7 @@
 /// so agents respect limits.
 library;
 
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/src/tools/message_tool.dart';
 import 'package:too_many_cooks/src/tools/plan_tool.dart';
@@ -24,6 +25,7 @@ String _desc(Map<String, Object?> schema, String name) {
 }
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   group('message tool schema', () {
     test('content has maxLength 200', () {
       expect(_field(messageInputSchema, 'content')['maxLength'], 200);

@@ -2,11 +2,13 @@
 library;
 
 import 'package:dart_logging/dart_logging.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:nadz/nadz.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/src/server.dart';
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   group('createTooManyCooksServer', () {
     test('creates server with default config', () {
       final result = createTooManyCooksServer();

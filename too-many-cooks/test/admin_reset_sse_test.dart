@@ -16,6 +16,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import 'package:dart_node_core/dart_node_core.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/too_many_cooks.dart' show serverBinary;
 
@@ -28,6 +29,7 @@ const _streamSettleMs = 200;
 const _pollIntervalMs = 50;
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   // Server process shared across all tests
   // ignore: no_late
   late JSObject serverProcess;

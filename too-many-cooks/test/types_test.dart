@@ -1,12 +1,14 @@
 /// Tests for pure Dart types.
 library;
 
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/src/config.dart';
 import 'package:too_many_cooks/src/data/data.dart' as data;
 import 'package:too_many_cooks/src/types.dart';
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   group('TooManyCooksConfig', () {
     test('defaultConfig has correct values', () {
       // dbPath is dynamic based on HOME env var, just check it ends correctly

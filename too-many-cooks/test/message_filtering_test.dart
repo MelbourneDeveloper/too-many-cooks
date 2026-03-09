@@ -11,6 +11,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import 'package:dart_node_core/dart_node_core.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/too_many_cooks.dart' show serverBinary;
 
@@ -28,6 +29,7 @@ const _dbFiles = ['data.db', 'data.db-wal', 'data.db-shm'];
 external JSPromise<JSObject> _jsFetch(JSString url, [JSObject? options]);
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   // `late` needed: assigned in setUpAll, used across multiple test callbacks.
   // ignore: no_late, reason: needed across multiple test callbacks
   late JSObject serverProcess;

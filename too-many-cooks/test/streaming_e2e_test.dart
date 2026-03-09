@@ -11,6 +11,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import 'package:dart_node_core/dart_node_core.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/too_many_cooks.dart' show serverBinary;
 
@@ -21,6 +22,7 @@ const _mcpProtocolVersion = '2025-03-26';
 const _defaultEventTimeoutMs = 1000;
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   group('Streaming E2E - SSE Events Over Streamable HTTP', () {
     // Server process shared across all tests
     // ignore: no_late

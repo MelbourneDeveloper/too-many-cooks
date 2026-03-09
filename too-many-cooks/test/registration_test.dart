@@ -4,6 +4,7 @@ library;
 import 'dart:js_interop';
 
 import 'package:dart_node_core/dart_node_core.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:nadz/nadz.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/src/data/data.dart';
@@ -24,6 +25,7 @@ void _deleteIfExists(String path) {
 }
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   const testDbPath = '.test_registration.db';
   TooManyCooksDb? db;
 

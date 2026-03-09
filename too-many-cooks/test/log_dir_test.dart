@@ -10,6 +10,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import 'package:dart_node_core/dart_node_core.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/too_many_cooks.dart' show serverBinary;
 
@@ -22,6 +23,7 @@ const _accept = 'application/json, text/event-stream';
 external JSPromise<JSObject> _jsFetch(JSString url, [JSObject? options]);
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   group('Log directory creation', () {
     late JSObject serverProcess;
     late String tmpWorkspace;

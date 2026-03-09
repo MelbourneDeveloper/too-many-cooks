@@ -4,6 +4,7 @@ library;
 import 'dart:js_interop';
 
 import 'package:dart_node_core/dart_node_core.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:nadz/nadz.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/src/data/data.dart';
@@ -37,6 +38,7 @@ void _deleteDirIfExists(String path) {
 }
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   test('createDb succeeds with valid path', () {
     const testDbPath = '.test_create_db.db';
     _deleteIfExists(testDbPath);

@@ -1,6 +1,7 @@
 /// Tests for notifications.dart - NotificationEmitter.
 library;
 
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:dart_node_mcp/dart_node_mcp.dart';
 import 'package:nadz/nadz.dart';
 import 'package:test/test.dart';
@@ -25,6 +26,7 @@ NotificationEmitter _createEmitter() {
 }
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   group('NotificationEmitter', () {
     test('emit does nothing without throwing', () {
       final emitter = _createEmitter();

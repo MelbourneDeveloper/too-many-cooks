@@ -7,10 +7,12 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import 'package:dart_node_core/dart_node_core.dart';
+import 'package:dart_node_coverage/dart_node_coverage.dart';
 import 'package:test/test.dart';
 import 'package:too_many_cooks/too_many_cooks.dart' show serverBinary;
 
 void main() {
+  tearDownAll(() => writeCoverageFile('coverage/coverage.json'));
   group('Too Many Cooks MCP Server Integration', () {
     // Server process shared across all tests
     // ignore: no_late
