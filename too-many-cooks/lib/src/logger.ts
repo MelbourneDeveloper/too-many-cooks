@@ -2,12 +2,12 @@
 
 /** Log levels in order of severity. */
 export const enum LogLevel {
-  trace = 0,
-  debug = 1,
-  info = 2,
-  warn = 3,
-  error = 4,
-  fatal = 5,
+  TRACE = 0,
+  DEBUG = 1,
+  INFO = 2,
+  WARN = 3,
+  ERROR = 4,
+  FATAL = 5,
 }
 
 /** Structured log message. */
@@ -20,12 +20,12 @@ export type LogMessage = {
 
 /** Log level names for display. */
 const LOG_LEVEL_NAMES: Record<LogLevel, string> = {
-  [LogLevel.trace]: "TRACE",
-  [LogLevel.debug]: "DEBUG",
-  [LogLevel.info]: "INFO",
-  [LogLevel.warn]: "WARN",
-  [LogLevel.error]: "ERROR",
-  [LogLevel.fatal]: "FATAL",
+  [LogLevel.TRACE]: "TRACE",
+  [LogLevel.DEBUG]: "DEBUG",
+  [LogLevel.INFO]: "INFO",
+  [LogLevel.WARN]: "WARN",
+  [LogLevel.ERROR]: "ERROR",
+  [LogLevel.FATAL]: "FATAL",
 };
 
 /** Get display name for a log level. */
@@ -80,7 +80,7 @@ export const createLoggingContext = (
   } = {},
 ): LoggingContext => ({
   transports: options.transports ?? [],
-  minimumLogLevel: options.minimumLogLevel ?? LogLevel.debug,
+  minimumLogLevel: options.minimumLogLevel ?? LogLevel.DEBUG,
 });
 
 /** Wrap a log function as a transport. */
@@ -115,12 +115,12 @@ const createLoggerImpl = (
   };
 
   return {
-    trace: (msg, data) => emit(LogLevel.trace, msg, data),
-    debug: (msg, data) => emit(LogLevel.debug, msg, data),
-    info: (msg, data) => emit(LogLevel.info, msg, data),
-    warn: (msg, data) => emit(LogLevel.warn, msg, data),
-    error: (msg, data) => emit(LogLevel.error, msg, data),
-    fatal: (msg, data) => emit(LogLevel.fatal, msg, data),
+    trace: (msg: string, data?: Record<string, unknown>): void => { emit(LogLevel.TRACE, msg, data); },
+    debug: (msg: string, data?: Record<string, unknown>): void => { emit(LogLevel.DEBUG, msg, data); },
+    info: (msg: string, data?: Record<string, unknown>): void => { emit(LogLevel.INFO, msg, data); },
+    warn: (msg: string, data?: Record<string, unknown>): void => { emit(LogLevel.WARN, msg, data); },
+    error: (msg: string, data?: Record<string, unknown>): void => { emit(LogLevel.ERROR, msg, data); },
+    fatal: (msg: string, data?: Record<string, unknown>): void => { emit(LogLevel.FATAL, msg, data); },
     child: (childData) =>
       createLoggerImpl(context, { ...parentData, ...childData }),
   };

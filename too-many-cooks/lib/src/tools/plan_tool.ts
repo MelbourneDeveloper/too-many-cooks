@@ -74,11 +74,11 @@ const resolveIdentity = (
   getSession: SessionGetter,
 ): IdentityOk | IdentityErr => {
   const keyOverride =
-    typeof args["agent_key"] === "string" ? args["agent_key"] : null;
+    typeof args.agent_key === "string" ? args.agent_key : null;
   if (keyOverride !== null) {
     const lookupResult = db.lookupByKey(keyOverride);
     if (!lookupResult.ok)
-      return { isError: true, result: makeErrorResult(lookupResult.error) };
+      {return { isError: true, result: makeErrorResult(lookupResult.error) };}
     return {
       isError: false,
       agentName: lookupResult.value,
@@ -106,44 +106,44 @@ export const createPlanHandler = (
   logger: Logger,
   getSession: SessionGetter,
 ): ToolCallback =>
-  async (args, _meta) => {
-    const actionArg = args["action"];
+  async (args: Record<string, unknown>): Promise<CallToolResult> => {
+    const actionArg = args.action;
     if (typeof actionArg !== "string") {
-      return errorContent("missing_parameter: action is required");
+      return await Promise.resolve(errorContent("missing_parameter: action is required"));
     }
     const action = actionArg;
     const log = logger.child({ tool: "plan", action });
 
-    if (action === "list") return handleList(db);
+    if (action === "list") {return await Promise.resolve(handleList(db));}
 
     const identity = resolveIdentity(db, args, getSession);
-    if (identity.isError) return identity.result;
+    if (identity.isError) {return await Promise.resolve(identity.result);}
     const { agentName, agentKey } = identity;
 
     switch (action) {
       case "update":
-        return handleUpdate(
+        return await Promise.resolve(handleUpdate(
           db,
           emitter,
           log,
           agentName,
           agentKey,
-          typeof args["goal"] === "string" ? args["goal"] : null,
-          typeof args["current_task"] === "string"
-            ? args["current_task"]
+          typeof args.goal === "string" ? args.goal : null,
+          typeof args.current_task === "string"
+            ? args.current_task
             : null,
-        );
+        ));
       case "get":
-        return handleGet(db, agentName);
+        return await Promise.resolve(handleGet(db, agentName));
       default:
-        return {
+        return await Promise.resolve({
           content: [
             textContent(
               JSON.stringify({ error: `Unknown action: ${action}` }),
             ),
           ],
           isError: true,
-        };
+        });
     }
   };
 
@@ -164,7 +164,7 @@ const handleUpdate = (
     return errorContent("update requires goal, current_task");
   }
   const result = db.updatePlan(agentName, agentKey, goal, currentTask);
-  if (!result.ok) return makeErrorResult(result.error);
+  if (!result.ok) {return makeErrorResult(result.error);}
   emitter.emit(EVENT_PLAN_UPDATED, {
     agent_name: agentName,
     goal,
@@ -186,20 +186,21 @@ const handleGet = (
   agentName: string,
 ): CallToolResult => {
   const result = db.getPlan(agentName);
-  if (!result.ok) return makeErrorResult(result.error);
-  return result.value !== undefined
-    ? {
-        content: [
-          textContent(
-            JSON.stringify({ plan: agentPlanToJson(result.value) }),
-          ),
-        ],
-        isError: false,
-      }
-    : {
-        content: [textContent(JSON.stringify({ plan: null }))],
-        isError: false,
-      };
+  if (!result.ok) {return makeErrorResult(result.error);}
+  if (result.value !== undefined) {
+    return {
+      content: [
+        textContent(
+          JSON.stringify({ plan: agentPlanToJson(result.value) }),
+        ),
+      ],
+      isError: false,
+    };
+  }
+  return {
+    content: [textContent(JSON.stringify({ plan: null }))],
+    isError: false,
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -208,7 +209,7 @@ const handleGet = (
 
 const handleList = (db: TooManyCooksDb): CallToolResult => {
   const result = db.listPlans();
-  if (!result.ok) return makeErrorResult(result.error);
+  if (!result.ok) {return makeErrorResult(result.error);}
   return {
     content: [
       textContent(

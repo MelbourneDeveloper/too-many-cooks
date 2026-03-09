@@ -6,10 +6,10 @@
 
 import crypto from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import express, { type Request, type Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
   type Logger,
   type LogMessage,
@@ -39,7 +39,7 @@ const main = async (): Promise<void> => {
   try {
     await startServer(log);
   } catch (e) {
-    log.fatal("Fatal error", { error: `${e}` });
+    log.fatal("Fatal error", { error: String(e) });
     throw e;
   }
 };
@@ -50,7 +50,7 @@ const startServer = async (log: Logger): Promise<void> => {
   const cfg = defaultConfig;
 
   const dbResult = createDb(cfg);
-  if (!dbResult.ok) throw new Error(dbResult.error);
+  if (!dbResult.ok) {throw new Error(dbResult.error);}
   const db = dbResult.value;
   log.info("Database created.");
 
@@ -68,7 +68,8 @@ const startServer = async (log: Logger): Promise<void> => {
   app.delete("/admin/events", asyncHandler(adminGetDeleteHandler(adminHub), log));
 
   // MCP Streamable HTTP routes
-  app.post("/mcp", asyncHandler(mcpPostHandler(transports, db, cfg, log, adminHub, agentHub), log));
+  const mcpCtx: McpSessionContext = { transports, db, cfg, log, adminHub, agentHub };
+  app.post("/mcp", asyncHandler(mcpPostHandler(mcpCtx), log));
   app.get("/mcp", asyncHandler(mcpGetDeleteHandler(transports, agentHub), log));
   app.delete("/mcp", asyncHandler(mcpGetDeleteHandler(transports, agentHub), log));
 
@@ -78,32 +79,97 @@ const startServer = async (log: Logger): Promise<void> => {
   });
 
   // Keep event loop alive
-  setInterval(() => {}, 60000);
-  await new Promise<void>(() => {});
+  const KEEP_ALIVE_INTERVAL_MS = 60000;
+  setInterval((): void => { /* noop */ }, KEEP_ALIVE_INTERVAL_MS);
+  await new Promise<void>((): void => { /* noop */ });
 };
 
 /** Check if a parsed JSON body is an MCP initialize request. */
 const isInitializeRequest = (body: unknown): boolean => {
-  if (typeof body !== "object" || body === null) return false;
-  const method = (body as Record<string, unknown>)["method"];
+  if (typeof body !== "object" || body === null) {return false;}
+  const {method} = (body as Record<string, unknown>);
   return method === "initialize";
+};
+
+/** Context for initializing an MCP session. */
+type McpSessionContext = {
+  readonly transports: Map<string, StreamableHTTPServerTransport>;
+  readonly db: TooManyCooksDb;
+  readonly cfg: typeof defaultConfig;
+  readonly log: Logger;
+  readonly adminHub: AdminEventHub;
+  readonly agentHub: AgentEventHub;
+};
+
+/** Wire up transport close handler for agent sessions. */
+const wireAgentTransportClose = (
+  transport: StreamableHTTPServerTransport,
+  ctx: McpSessionContext,
+): void => {
+  transport.onclose = (): void => {
+    const sid = transport.sessionId;
+    if (sid !== undefined) {
+      ctx.log.info("Session closed", { sessionId: sid });
+      ctx.transports.delete(sid);
+      ctx.agentHub.servers.delete(sid);
+      ctx.agentHub.sessionAgentNames.delete(sid);
+      ctx.agentHub.activeSseSessions.delete(sid);
+    }
+  };
+};
+
+/** Initialize an MCP agent session (POST /mcp with initialize body). */
+const initializeMcpSession = async (
+  req: Request,
+  res: Response,
+  ctx: McpSessionContext,
+): Promise<void> => {
+  const { body } = req as { body: unknown };
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: (): string => crypto.randomUUID(),
+    onsessioninitialized: (sid: string): void => {
+      ctx.log.info("Session init", { sessionId: sid });
+      ctx.transports.set(sid, transport);
+    },
+  });
+
+  wireAgentTransportClose(transport, ctx);
+
+  const serverResult = createMcpServerForDb(ctx.db, ctx.cfg, ctx.log, {
+    adminPush: ctx.adminHub.pushEvent,
+    agentPush: ctx.agentHub.pushEvent,
+    agentPushToAgent: ctx.agentHub.pushToAgent,
+    onSessionSet: (agentName: string): void => {
+      const sid = transport.sessionId;
+      if (sid !== undefined) {
+        ctx.agentHub.sessionAgentNames.set(sid, agentName);
+      }
+    },
+  });
+  if (!serverResult.ok) {throw new Error(serverResult.error);}
+  const server = serverResult.value;
+  await server.connect(transport as unknown as Transport);
+  await transport.handleRequest(req, res, body);
+
+  const sid = transport.sessionId;
+  if (sid !== undefined) {
+    ctx.agentHub.servers.set(sid, server);
+  }
 };
 
 /** POST /mcp handler. */
 const mcpPostHandler = (
-  transports: Map<string, StreamableHTTPServerTransport>,
-  db: TooManyCooksDb,
-  cfg: typeof defaultConfig,
-  log: Logger,
-  adminHub: AdminEventHub,
-  agentHub: AgentEventHub,
+  ctx: McpSessionContext,
 ): ((req: Request, res: Response) => Promise<void>) =>
-  async (req, res) => {
+  async (req: Request, res: Response): Promise<void> => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
-    const body = req.body;
+    const { body } = req as { body: unknown };
 
-    if (sessionId !== undefined && transports.has(sessionId)) {
-      await transports.get(sessionId)!.handleRequest(req, res, body);
+    if (sessionId !== undefined && ctx.transports.has(sessionId)) {
+      const existing = ctx.transports.get(sessionId);
+      if (existing !== undefined) {
+        await existing.handleRequest(req, res, body);
+      }
       return;
     }
 
@@ -113,49 +179,7 @@ const mcpPostHandler = (
     }
 
     if (isInitializeRequest(body)) {
-      let transportRef: StreamableHTTPServerTransport | undefined;
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID(),
-        onsessioninitialized: (sid: string) => {
-          log.info("Session init", { sessionId: sid });
-          if (transportRef !== undefined) {
-            transports.set(sid, transportRef);
-          }
-        },
-      });
-      transportRef = transport;
-
-      transport.onclose = () => {
-        const sid = transport.sessionId;
-        if (sid !== undefined) {
-          log.info("Session closed", { sessionId: sid });
-          transports.delete(sid);
-          agentHub.servers.delete(sid);
-          agentHub.sessionAgentNames.delete(sid);
-          agentHub.activeSseSessions.delete(sid);
-        }
-      };
-
-      const serverResult = createMcpServerForDb(db, cfg, log, {
-        adminPush: adminHub.pushEvent,
-        agentPush: agentHub.pushEvent,
-        agentPushToAgent: agentHub.pushToAgent,
-        onSessionSet: (agentName: string) => {
-          const sid = transport.sessionId;
-          if (sid !== undefined) {
-            agentHub.sessionAgentNames.set(sid, agentName);
-          }
-        },
-      });
-      if (!serverResult.ok) throw new Error(serverResult.error);
-      const server = serverResult.value;
-      await server.connect(transport);
-      await transport.handleRequest(req, res, body);
-
-      const sid = transport.sessionId;
-      if (sid !== undefined) {
-        agentHub.servers.set(sid, server);
-      }
+      await initializeMcpSession(req, res, ctx);
       return;
     }
 
@@ -167,31 +191,73 @@ const mcpGetDeleteHandler = (
   transports: Map<string, StreamableHTTPServerTransport>,
   agentHub: AgentEventHub,
 ): ((req: Request, res: Response) => Promise<void>) =>
-  async (req, res) => {
+  async (req: Request, res: Response): Promise<void> => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
     if (sessionId === undefined) {
       res.status(400).send("Missing session ID");
       return;
     }
-    if (!transports.has(sessionId)) {
+    const transport = transports.get(sessionId);
+    if (transport === undefined) {
       res.status(404).send(SESSION_NOT_FOUND_JSON);
       return;
     }
     agentHub.activeSseSessions.add(sessionId);
-    await transports.get(sessionId)!.handleRequest(req, res);
+    await transport.handleRequest(req, res);
   };
+
+/** Initialize an admin session (POST /admin/events with initialize body). */
+const initializeAdminSession = async (
+  req: Request,
+  res: Response,
+  hub: AdminEventHub,
+  log: Logger,
+): Promise<void> => {
+  const { body } = req as { body: unknown };
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: (): string => crypto.randomUUID(),
+    onsessioninitialized: (sid: string): void => {
+      log.info("Admin session init", { sessionId: sid });
+      hub.transports.set(sid, transport);
+    },
+  });
+
+  transport.onclose = (): void => {
+    const sid = transport.sessionId;
+    if (sid !== undefined) {
+      log.info("Admin session closed", { sessionId: sid });
+      hub.transports.delete(sid);
+      hub.servers.delete(sid);
+    }
+  };
+
+  const server = new McpServer(
+    { name: "too-many-cooks", version: "0.1.0" },
+    { capabilities: { logging: {} } },
+  );
+  await server.connect(transport as unknown as Transport);
+  await transport.handleRequest(req, res, body);
+
+  const sid = transport.sessionId;
+  if (sid !== undefined) {
+    hub.servers.set(sid, server);
+  }
+};
 
 /** POST /admin/events handler. */
 const adminPostHandler = (
   hub: AdminEventHub,
   log: Logger,
 ): ((req: Request, res: Response) => Promise<void>) =>
-  async (req, res) => {
+  async (req: Request, res: Response): Promise<void> => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
-    const body = req.body;
+    const { body } = req as { body: unknown };
 
     if (sessionId !== undefined && hub.transports.has(sessionId)) {
-      await hub.transports.get(sessionId)!.handleRequest(req, res, body);
+      const existing = hub.transports.get(sessionId);
+      if (existing !== undefined) {
+        await existing.handleRequest(req, res, body);
+      }
       return;
     }
 
@@ -201,38 +267,7 @@ const adminPostHandler = (
     }
 
     if (isInitializeRequest(body)) {
-      let transportRef: StreamableHTTPServerTransport | undefined;
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID(),
-        onsessioninitialized: (sid: string) => {
-          log.info("Admin session init", { sessionId: sid });
-          if (transportRef !== undefined) {
-            hub.transports.set(sid, transportRef);
-          }
-        },
-      });
-      transportRef = transport;
-
-      transport.onclose = () => {
-        const sid = transport.sessionId;
-        if (sid !== undefined) {
-          log.info("Admin session closed", { sessionId: sid });
-          hub.transports.delete(sid);
-          hub.servers.delete(sid);
-        }
-      };
-
-      const server = new McpServer(
-        { name: "too-many-cooks", version: "0.1.0" },
-        { capabilities: { logging: {} } },
-      );
-      await server.connect(transport);
-      await transport.handleRequest(req, res, body);
-
-      const sid = transport.sessionId;
-      if (sid !== undefined) {
-        hub.servers.set(sid, server);
-      }
+      await initializeAdminSession(req, res, hub, log);
       return;
     }
 
@@ -243,17 +278,18 @@ const adminPostHandler = (
 const adminGetDeleteHandler = (
   hub: AdminEventHub,
 ): ((req: Request, res: Response) => Promise<void>) =>
-  async (req, res) => {
+  async (req: Request, res: Response): Promise<void> => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
     if (sessionId === undefined) {
       res.status(400).send("Missing session ID");
       return;
     }
-    if (!hub.transports.has(sessionId)) {
+    const transport = hub.transports.get(sessionId);
+    if (transport === undefined) {
       res.status(404).send(SESSION_NOT_FOUND_JSON);
       return;
     }
-    await hub.transports.get(sessionId)!.handleRequest(req, res);
+    await transport.handleRequest(req, res);
   };
 
 /** Wrap an async handler for Express. */
@@ -261,9 +297,9 @@ const asyncHandler = (
   fn: (req: Request, res: Response) => Promise<void>,
   log: Logger,
 ): ((req: Request, res: Response) => void) =>
-  (req, res) => {
-    fn(req, res).catch((e: unknown) => {
-      log.error("Request error", { error: `${e}` });
+  (req: Request, res: Response): void => {
+    fn(req, res).catch((e: unknown): void => {
+      log.error("Request error", { error: String(e) });
     });
   };
 
@@ -287,7 +323,7 @@ const createLogger = (): Logger => {
         logTransport(createConsoleTransport()),
         logTransport(createFileTransport(logFilePath)),
       ],
-      minimumLogLevel: LogLevel.debug,
+      minimumLogLevel: LogLevel.DEBUG,
     }),
   );
 };
@@ -305,18 +341,18 @@ const formatLogLine = (message: LogMessage): string => {
 const createConsoleTransport =
   () =>
   (message: LogMessage, minimumLogLevel: LogLevel): void => {
-    if (message.logLevel < minimumLogLevel) return;
+    if (message.logLevel < minimumLogLevel) {return;}
     console.error(formatLogLine(message).trimEnd());
   };
 
 const createFileTransport =
   (filePath: string) =>
   (message: LogMessage, minimumLogLevel: LogLevel): void => {
-    if (message.logLevel < minimumLogLevel) return;
+    if (message.logLevel < minimumLogLevel) {return;}
     fs.appendFileSync(filePath, formatLogLine(message));
   };
 
-main().catch((e) => {
+main().catch((e: unknown): void => {
   console.error("Fatal:", e);
   process.exit(1);
 });

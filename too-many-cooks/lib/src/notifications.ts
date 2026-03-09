@@ -11,7 +11,7 @@
  * real-time without polling.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type Result, error, success } from "./result.js";
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ export const sendNotification = async (
     });
     return success(undefined);
   } catch (e: unknown) {
-    return error(`${e}`);
+    return error(String(e));
   }
 };
 
@@ -83,47 +83,57 @@ export const sendNotification = async (
 // createAgentEventHub
 // ---------------------------------------------------------------------------
 
-export const createAgentEventHub = (): AgentEventHub => {
-  const servers = new Map<string, McpServer>();
-  const sessionAgentNames = new Map<string, string>();
-  const activeSseSessions = new Set<string>();
+/** Swallow promise rejection silently. */
+const noop = (): void => { /* noop */ };
 
-  const send = async (
-    sessionId: string,
-    server: McpServer,
-    data: Record<string, unknown>,
-  ): Promise<void> => {
-    if (!activeSseSessions.has(sessionId)) return;
+/** Fire-and-forget a promise. */
+const fireAndForget = (promise: Promise<void>): void => {
+  promise.catch(noop);
+};
+
+/** Build a structured event data envelope. */
+const makeEventData = (
+  event: string,
+  payload: Record<string, unknown>,
+): Record<string, unknown> => ({
+  event,
+  timestamp: Date.now(),
+  payload,
+});
+
+/** Create send function that pushes to a single agent session. */
+const createSendFn = (
+  activeSseSessions: Set<string>,
+  servers: Map<string, McpServer>,
+  sessionAgentNames: Map<string, string>,
+): ((sid: string, srv: McpServer, d: Record<string, unknown>) => Promise<void>) =>
+  async (sessionId: string, server: McpServer, data: Record<string, unknown>): Promise<void> => {
+    if (!activeSseSessions.has(sessionId)) {return;}
     console.error(`[TMC] [AGENT-PUSH] Sending to ${sessionId}`);
     const result = await sendNotification(server, data);
     if (result.ok) {
       console.error(`[TMC] [AGENT-PUSH] Sent OK to ${sessionId}`);
     } else {
-      console.error(
-        `[TMC] [AGENT-PUSH] FAILED ${sessionId}: ${result.error}`,
-      );
+      console.error(`[TMC] [AGENT-PUSH] FAILED ${sessionId}: ${result.error}`);
       servers.delete(sessionId);
       sessionAgentNames.delete(sessionId);
       activeSseSessions.delete(sessionId);
     }
   };
 
-  const makeEventData = (
-    event: string,
-    payload: Record<string, unknown>,
-  ): Record<string, unknown> => ({
-    event,
-    timestamp: Date.now(),
-    payload,
-  });
+export const createAgentEventHub = (): AgentEventHub => {
+  const servers = new Map<string, McpServer>();
+  const sessionAgentNames = new Map<string, string>();
+  const activeSseSessions = new Set<string>();
+  const send = createSendFn(activeSseSessions, servers, sessionAgentNames);
 
   const pushEvent: EventPushFn = (event, payload) => {
     console.error(
-      `[TMC] [AGENT-PUSH] ${event} → ${servers.size} agent(s)`,
+      `[TMC] [AGENT-PUSH] ${event} → ${String(servers.size)} agent(s)`,
     );
     const data = makeEventData(event, payload);
     for (const [sessionId, server] of [...servers.entries()]) {
-      void send(sessionId, server, data).catch(() => {});
+      fireAndForget(send(sessionId, server, data));
     }
   };
 
@@ -131,32 +141,24 @@ export const createAgentEventHub = (): AgentEventHub => {
     const data = makeEventData(event, payload);
     if (toAgent === BROADCAST_RECIPIENT) {
       console.error(
-        `[TMC] [AGENT-PUSH] ${event} (broadcast) → ${servers.size} agent(s)`,
+        `[TMC] [AGENT-PUSH] ${event} (broadcast) → ${String(servers.size)} agent(s)`,
       );
       for (const [sessionId, server] of [...servers.entries()]) {
-        void send(sessionId, server, data).catch(() => {});
+        fireAndForget(send(sessionId, server, data));
       }
     } else {
-      for (const [sessionId, agentName] of [
-        ...sessionAgentNames.entries(),
-      ]) {
+      for (const [sessionId, agentName] of [...sessionAgentNames.entries()]) {
         if (agentName === toAgent) {
           const server = servers.get(sessionId);
           if (server !== undefined) {
-            void send(sessionId, server, data).catch(() => {});
+            fireAndForget(send(sessionId, server, data));
           }
         }
       }
     }
   };
 
-  return {
-    servers,
-    sessionAgentNames,
-    activeSseSessions,
-    pushEvent,
-    pushToAgent,
-  };
+  return { servers, sessionAgentNames, activeSseSessions, pushEvent, pushToAgent };
 };
 
 // ---------------------------------------------------------------------------

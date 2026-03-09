@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Database operations module; splitting would fragment cohesive DB logic */
 /// Database operations for Too Many Cooks.
 
 import Database from "better-sqlite3";
@@ -164,9 +165,9 @@ export const createDb = (
     isSqliteRetryable,
     () => tryCreateDb(config, log),
     (attempt, err, delayMs) =>
-      log.warn(
+      { log.warn(
         `Attempt ${String(attempt)} failed (retryable): ${err}. Retrying in ${String(delayMs)}ms...`,
-      ),
+      ); },
   );
 };
 
@@ -316,7 +317,7 @@ const lookupByKey = (
     if (row === undefined) {
       return error({ code: ERR_UNAUTHORIZED, message: "Invalid key" });
     }
-    const agentName = row["agent_name"];
+    const agentName = row.agent_name;
     return typeof agentName === "string"
       ? success(agentName)
       : error({ code: ERR_DATABASE, message: "Missing agent_name" });
@@ -335,7 +336,7 @@ const listAgents = (
     const stmt = db.prepare(
       "SELECT agent_name, registered_at, last_active FROM identity WHERE active = 1",
     );
-    const rows = stmt.all() as readonly Record<string, unknown>[];
+    const rows = stmt.all() as ReadonlyArray<Record<string, unknown>>;
     return success(rows.map(agentIdentityFromJson));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -383,13 +384,13 @@ const acquireLock = (
 ): Result<LockResult, DbError> => {
   log.debug(`Acquiring lock on ${filePath} for ${agentName}`);
   const authResult = authAndUpdate(db, agentName, agentKey);
-  if (!authResult.ok) return authResult;
+  if (!authResult.ok) {return authResult;}
 
   const timestamp = now();
   const expiresAt = timestamp + timeoutMs;
 
   const existing = queryLock(db, log, filePath);
-  if (!existing.ok) return existing;
+  if (!existing.ok) {return existing;}
   if (existing.value !== undefined) {
     if (existing.value.expiresAt > timestamp) {
       return success({
@@ -399,7 +400,7 @@ const acquireLock = (
       });
     }
     const delResult = deleteExpiredLock(db, filePath);
-    if (!delResult.ok) return delResult;
+    if (!delResult.ok) {return delResult;}
   }
 
   return insertLock(db, filePath, agentName, timestamp, expiresAt, reason);
@@ -442,7 +443,7 @@ const releaseLock = (
 ): Result<void, DbError> => {
   log.debug(`Releasing lock on ${filePath} for ${agentName}`);
   const authResult = authAndUpdate(db, agentName, agentKey);
-  if (!authResult.ok) return authResult;
+  if (!authResult.ok) {return authResult;}
 
   try {
     const stmt = db.prepare(
@@ -467,10 +468,10 @@ const forceReleaseLock = (
 ): Result<void, DbError> => {
   log.debug(`Force releasing lock on ${filePath} for ${agentName}`);
   const authResult = authAndUpdate(db, agentName, agentKey);
-  if (!authResult.ok) return authResult;
+  if (!authResult.ok) {return authResult;}
 
   const existing = queryLock(db, log, filePath);
-  if (!existing.ok) return existing;
+  if (!existing.ok) {return existing;}
   if (existing.value === undefined) {
     return error({ code: ERR_NOT_FOUND, message: "No lock exists" });
   }
@@ -491,7 +492,7 @@ const listLocks = (
   log.trace("Listing all locks");
   try {
     const stmt = db.prepare("SELECT * FROM locks");
-    const rows = stmt.all() as readonly Record<string, unknown>[];
+    const rows = stmt.all() as ReadonlyArray<Record<string, unknown>>;
     return success(rows.map(fileLockFromJson));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -509,7 +510,7 @@ const renewLock = (
 ): Result<void, DbError> => {
   log.debug(`Renewing lock on ${filePath} for ${agentName}`);
   const authResult = authAndUpdate(db, agentName, agentKey);
-  if (!authResult.ok) return authResult;
+  if (!authResult.ok) {return authResult;}
 
   const newExpiry = now() + timeoutMs;
   try {
@@ -537,7 +538,7 @@ const sendMessage = (
 ): Result<string, DbError> => {
   log.debug(`Sending message from ${fromAgent} to ${toAgent}`);
   const authResult = authAndUpdate(db, fromAgent, fromKey);
-  if (!authResult.ok) return authResult;
+  if (!authResult.ok) {return authResult;}
 
   if (content.length > maxLen) {
     return error({
@@ -569,7 +570,7 @@ const autoMarkRead = (
   const unreadIds = messages
     .filter((m) => m.readAt === undefined)
     .map((m) => m.id);
-  if (unreadIds.length === 0) return;
+  if (unreadIds.length === 0) {return;}
 
   const timestamp = now();
   try {
@@ -599,14 +600,14 @@ const getMessages = (
 ): Result<readonly Message[], DbError> => {
   log.trace(`Getting messages for ${agentName} (unreadOnly: ${String(unreadOnly)})`);
   const authResult = authAndUpdate(db, agentName, agentKey);
-  if (!authResult.ok) return authResult;
+  if (!authResult.ok) {return authResult;}
 
   const sql = unreadOnly
     ? "SELECT * FROM messages WHERE (to_agent = ? OR to_agent = '*') AND read_at IS NULL ORDER BY created_at DESC"
     : "SELECT * FROM messages WHERE (to_agent = ? OR to_agent = '*') ORDER BY created_at DESC";
   try {
     const stmt = db.prepare(sql);
-    const rows = stmt.all(agentName) as readonly Record<string, unknown>[];
+    const rows = stmt.all(agentName) as ReadonlyArray<Record<string, unknown>>;
     const messageList = rows.map(messageFromJson);
     autoMarkRead(db, log, agentName, messageList);
     return success(messageList);
@@ -625,7 +626,7 @@ const markRead = (
 ): Result<void, DbError> => {
   log.trace(`Marking message ${messageId} as read for ${agentName}`);
   const authResult = authAndUpdate(db, agentName, agentKey);
-  if (!authResult.ok) return authResult;
+  if (!authResult.ok) {return authResult;}
 
   try {
     const stmt = db.prepare(
@@ -652,7 +653,7 @@ const updatePlan = (
 ): Result<void, DbError> => {
   log.debug(`Updating plan for ${agentName}`);
   const authResult = authAndUpdate(db, agentName, agentKey);
-  if (!authResult.ok) return authResult;
+  if (!authResult.ok) {return authResult;}
 
   if (goal.length > maxLen || currentTask.length > maxLen) {
     return error({
@@ -701,7 +702,7 @@ const listPlans = (
   log.trace("Listing all plans");
   try {
     const stmt = db.prepare("SELECT * FROM plans");
-    const rows = stmt.all() as readonly Record<string, unknown>[];
+    const rows = stmt.all() as ReadonlyArray<Record<string, unknown>>;
     return success(rows.map(agentPlanFromJson));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -718,7 +719,7 @@ const listAllMessages = (
     const stmt = db.prepare(
       "SELECT * FROM messages ORDER BY created_at DESC",
     );
-    const rows = stmt.all() as readonly Record<string, unknown>[];
+    const rows = stmt.all() as ReadonlyArray<Record<string, unknown>>;
     return success(rows.map(messageFromJson));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -932,7 +933,7 @@ const createDbOps = (
   activate: (name) => setActive(db, log, name, true),
   deactivate: (name) => setActive(db, log, name, false),
   deactivateAll: () => deactivateAll(db, log),
-  close: () => {
+  close: (): Result<undefined, DbError> => {
     log.info("Closing database");
     try {
       db.close();

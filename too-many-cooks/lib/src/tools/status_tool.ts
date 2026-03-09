@@ -36,33 +36,33 @@ export const createStatusHandler = (
   db: TooManyCooksDb,
   logger: Logger,
 ): ToolCallback =>
-  async (_args, _meta) => {
+  async (): Promise<CallToolResult> => {
     const log = logger.child({ tool: "status" });
 
     const agentsResult = db.listAgents();
-    if (!agentsResult.ok) return makeErrorResult(agentsResult.error);
+    if (!agentsResult.ok) {return await Promise.resolve(makeErrorResult(agentsResult.error));}
     const agents = agentsResult.value.map(agentIdentityToJson);
 
     const locksResult = db.listLocks();
-    if (!locksResult.ok) return makeErrorResult(locksResult.error);
+    if (!locksResult.ok) {return await Promise.resolve(makeErrorResult(locksResult.error));}
     const locks = locksResult.value.map(fileLockToJson);
 
     const plansResult = db.listPlans();
-    if (!plansResult.ok) return makeErrorResult(plansResult.error);
+    if (!plansResult.ok) {return await Promise.resolve(makeErrorResult(plansResult.error));}
     const plans = plansResult.value.map(agentPlanToJson);
 
     const messagesResult = db.listAllMessages();
-    if (!messagesResult.ok) return makeErrorResult(messagesResult.error);
+    if (!messagesResult.ok) {return await Promise.resolve(makeErrorResult(messagesResult.error));}
     const messages = messagesResult.value.map(messageToJson);
 
     log.debug("Status queried");
 
-    return {
+    return await Promise.resolve({
       content: [
         textContent(JSON.stringify({ agents, locks, plans, messages })),
       ],
       isError: false,
-    };
+    });
   };
 
 const makeErrorResult = (e: DbError): CallToolResult => ({

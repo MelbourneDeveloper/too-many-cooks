@@ -20,11 +20,11 @@ export const agentIdentityToJson = (
 export const agentIdentityFromJson = (
   json: Record<string, unknown>,
 ): AgentIdentity => ({
-  agentName: typeof json["agent_name"] === "string" ? json["agent_name"] : "",
+  agentName: typeof json.agent_name === "string" ? json.agent_name : "",
   registeredAt:
-    typeof json["registered_at"] === "number" ? json["registered_at"] : 0,
+    typeof json.registered_at === "number" ? json.registered_at : 0,
   lastActive:
-    typeof json["last_active"] === "number" ? json["last_active"] : 0,
+    typeof json.last_active === "number" ? json.last_active : 0,
 });
 
 /** Agent registration result (includes secret key). */
@@ -45,8 +45,8 @@ export const agentRegistrationToJson = (
 export const agentRegistrationFromJson = (
   json: Record<string, unknown>,
 ): AgentRegistration => ({
-  agentName: typeof json["agent_name"] === "string" ? json["agent_name"] : "",
-  agentKey: typeof json["agent_key"] === "string" ? json["agent_key"] : "",
+  agentName: typeof json.agent_name === "string" ? json.agent_name : "",
+  agentKey: typeof json.agent_key === "string" ? json.agent_key : "",
 });
 
 /** File lock info. */
@@ -67,7 +67,7 @@ export const fileLockToJson = (
   agent_name: fileLock.agentName,
   acquired_at: fileLock.acquiredAt,
   expires_at: fileLock.expiresAt,
-  ...(fileLock.reason !== undefined ? { reason: fileLock.reason } : {}),
+  ...(fileLock.reason === undefined ? {} : { reason: fileLock.reason }),
   version: fileLock.version,
 });
 
@@ -75,13 +75,13 @@ export const fileLockToJson = (
 export const fileLockFromJson = (
   json: Record<string, unknown>,
 ): FileLock => ({
-  filePath: typeof json["file_path"] === "string" ? json["file_path"] : "",
-  agentName: typeof json["agent_name"] === "string" ? json["agent_name"] : "",
+  filePath: typeof json.file_path === "string" ? json.file_path : "",
+  agentName: typeof json.agent_name === "string" ? json.agent_name : "",
   acquiredAt:
-    typeof json["acquired_at"] === "number" ? json["acquired_at"] : 0,
-  expiresAt: typeof json["expires_at"] === "number" ? json["expires_at"] : 0,
-  reason: typeof json["reason"] === "string" ? json["reason"] : undefined,
-  version: typeof json["version"] === "number" ? json["version"] : 0,
+    typeof json.acquired_at === "number" ? json.acquired_at : 0,
+  expiresAt: typeof json.expires_at === "number" ? json.expires_at : 0,
+  reason: typeof json.reason === "string" ? json.reason : undefined,
+  version: typeof json.version === "number" ? json.version : 0,
 });
 
 /** Lock acquisition result. */
@@ -96,22 +96,22 @@ export const lockResultToJson = (
   lockResult: LockResult,
 ): Record<string, unknown> => ({
   acquired: lockResult.acquired,
-  ...(lockResult.lock !== undefined
-    ? { lock: fileLockToJson(lockResult.lock) }
-    : {}),
-  ...(lockResult.error !== undefined ? { error: lockResult.error } : {}),
+  ...(lockResult.lock === undefined
+    ? {}
+    : { lock: fileLockToJson(lockResult.lock) }),
+  ...(lockResult.error === undefined ? {} : { error: lockResult.error }),
 });
 
 /** Deserialize LockResult from a JSON map. */
 export const lockResultFromJson = (
   json: Record<string, unknown>,
 ): LockResult => ({
-  acquired: typeof json["acquired"] === "boolean" ? json["acquired"] : false,
+  acquired: typeof json.acquired === "boolean" ? json.acquired : false,
   lock:
-    typeof json["lock"] === "object" && json["lock"] !== null
-      ? fileLockFromJson(json["lock"] as Record<string, unknown>)
+    typeof json.lock === "object" && json.lock !== null
+      ? fileLockFromJson(json.lock as Record<string, unknown>)
       : undefined,
-  error: typeof json["error"] === "string" ? json["error"] : undefined,
+  error: typeof json.error === "string" ? json.error : undefined,
 });
 
 /** Inter-agent message. */
@@ -131,20 +131,20 @@ export const messageToJson = (message: Message): Record<string, unknown> => ({
   to_agent: message.toAgent,
   content: message.content,
   created_at: message.createdAt,
-  ...(message.readAt !== undefined ? { read_at: message.readAt } : {}),
+  ...(message.readAt === undefined ? {} : { read_at: message.readAt }),
 });
 
 /** Deserialize Message from a JSON map. */
 export const messageFromJson = (
   json: Record<string, unknown>,
 ): Message => ({
-  id: typeof json["id"] === "string" ? json["id"] : "",
+  id: typeof json.id === "string" ? json.id : "",
   fromAgent:
-    typeof json["from_agent"] === "string" ? json["from_agent"] : "",
-  toAgent: typeof json["to_agent"] === "string" ? json["to_agent"] : "",
-  content: typeof json["content"] === "string" ? json["content"] : "",
-  createdAt: typeof json["created_at"] === "number" ? json["created_at"] : 0,
-  readAt: typeof json["read_at"] === "number" ? json["read_at"] : undefined,
+    typeof json.from_agent === "string" ? json.from_agent : "",
+  toAgent: typeof json.to_agent === "string" ? json.to_agent : "",
+  content: typeof json.content === "string" ? json.content : "",
+  createdAt: typeof json.created_at === "number" ? json.created_at : 0,
+  readAt: typeof json.read_at === "number" ? json.read_at : undefined,
 });
 
 /** Agent plan (what they're doing and why). */
@@ -169,11 +169,11 @@ export const agentPlanToJson = (
 export const agentPlanFromJson = (
   json: Record<string, unknown>,
 ): AgentPlan => ({
-  agentName: typeof json["agent_name"] === "string" ? json["agent_name"] : "",
-  goal: typeof json["goal"] === "string" ? json["goal"] : "",
+  agentName: typeof json.agent_name === "string" ? json.agent_name : "",
+  goal: typeof json.goal === "string" ? json.goal : "",
   currentTask:
-    typeof json["current_task"] === "string" ? json["current_task"] : "",
-  updatedAt: typeof json["updated_at"] === "number" ? json["updated_at"] : 0,
+    typeof json.current_task === "string" ? json.current_task : "",
+  updatedAt: typeof json.updated_at === "number" ? json.updated_at : 0,
 });
 
 /** Database error. */
@@ -192,6 +192,6 @@ export const dbErrorToJson = (dbError: DbError): Record<string, unknown> => ({
 export const dbErrorFromJson = (
   json: Record<string, unknown>,
 ): DbError => ({
-  code: typeof json["code"] === "string" ? json["code"] : "",
-  message: typeof json["message"] === "string" ? json["message"] : "",
+  code: typeof json.code === "string" ? json.code : "",
+  message: typeof json.message === "string" ? json.message : "",
 });

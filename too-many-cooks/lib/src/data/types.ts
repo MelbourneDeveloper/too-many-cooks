@@ -7,10 +7,26 @@ import type { DbError } from "./types.gen.js";
 export * from "./types.gen.js";
 
 /** Pattern for valid agent names: alphanumeric, hyphens, underscores. */
-const VALID_AGENT_NAME = /^[a-zA-Z0-9_-]+$/;
+const VALID_AGENT_NAME = /^[a-zA-Z0-9_-]+$/u;
 
 /** Maximum agent name length. */
 export const MAX_AGENT_NAME_LENGTH = 50;
+
+/** Create a validated AgentIdentity. */
+/** Validate the agent name format. */
+const validateAgentName = (
+  agentName: string,
+): Result<string, DbError> => {
+  if (VALID_AGENT_NAME.test(agentName)) {
+    return agentName.length > MAX_AGENT_NAME_LENGTH
+      ? error({ code: ERR_VALIDATION, message: "Agent name must be 1-50 chars" })
+      : success(agentName);
+  }
+  return error({
+    code: ERR_VALIDATION,
+    message: "Agent name must be alphanumeric (hyphens/underscores ok)",
+  });
+};
 
 /** Create a validated AgentIdentity. */
 export const agentIdentity = (params: {
@@ -20,22 +36,16 @@ export const agentIdentity = (params: {
 }): Result<
   { readonly agentName: string; readonly registeredAt: number; readonly lastActive: number },
   DbError
-> =>
-  !VALID_AGENT_NAME.test(params.agentName)
-    ? error({
-        code: ERR_VALIDATION,
-        message: "Agent name must be alphanumeric (hyphens/underscores ok)",
+> => {
+  const nameResult = validateAgentName(params.agentName);
+  return nameResult.ok
+    ? success({
+        agentName: nameResult.value,
+        registeredAt: params.registeredAt,
+        lastActive: params.lastActive,
       })
-    : params.agentName.length > MAX_AGENT_NAME_LENGTH
-      ? error({
-          code: ERR_VALIDATION,
-          message: "Agent name must be 1-50 chars",
-        })
-      : success({
-          agentName: params.agentName,
-          registeredAt: params.registeredAt,
-          lastActive: params.lastActive,
-        });
+    : error(nameResult.error);
+};
 
 /** Error code for resource not found. */
 export const ERR_NOT_FOUND = "NOT_FOUND";

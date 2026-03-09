@@ -52,6 +52,128 @@ export const REGISTER_TOOL_CONFIG = {
   annotations: null,
 } as const;
 
+// ---------------------------------------------------------------------------
+// Reconnect handler
+// ---------------------------------------------------------------------------
+
+const handleReconnect = (
+  db: TooManyCooksDb,
+  emitter: NotificationEmitter,
+  log: Logger,
+  setSession: SessionSetter,
+  keyArg: string,
+): CallToolResult => {
+  const lookupResult = db.lookupByKey(keyArg);
+  if (!lookupResult.ok) {
+    log.warn(`Reconnect failed: ${lookupResult.error.code}`);
+    return {
+      content: [
+        textContent(JSON.stringify(dbErrorToJson(lookupResult.error))),
+      ],
+      isError: true,
+    };
+  }
+  setSession(lookupResult.value, keyArg);
+  db.activate(lookupResult.value);
+  emitter.emit(EVENT_AGENT_ACTIVATED, {
+    agent_name: lookupResult.value,
+  });
+  log.info(`Agent reconnected: ${lookupResult.value}`);
+  return {
+    content: [
+      textContent(
+        JSON.stringify({
+          agent_name: lookupResult.value,
+          agent_key: keyArg,
+        }),
+      ),
+    ],
+    isError: false,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// First registration handler
+// ---------------------------------------------------------------------------
+
+const handleFirstRegistration = (
+  db: TooManyCooksDb,
+  emitter: NotificationEmitter,
+  log: Logger,
+  setSession: SessionSetter,
+  nameArg: string,
+): CallToolResult => {
+  let reg = db.register(nameArg);
+
+  if (!reg.ok && reg.error.message.includes("already registered")) {
+    const resetResult = db.adminResetKey(nameArg);
+    if (!resetResult.ok) {
+      log.warn(`Re-registration failed: ${resetResult.error.code}`);
+      return {
+        content: [
+          textContent(JSON.stringify(dbErrorToJson(resetResult.error))),
+        ],
+        isError: true,
+      };
+    }
+    reg = resetResult;
+  }
+
+  if (!reg.ok) {
+    log.warn(`Registration failed: ${reg.error.code}`);
+    return {
+      content: [textContent(JSON.stringify(dbErrorToJson(reg.error)))],
+      isError: true,
+    };
+  }
+
+  setSession(reg.value.agentName, reg.value.agentKey);
+  db.activate(reg.value.agentName);
+  emitter.emit(EVENT_AGENT_REGISTERED, {
+    agent_name: reg.value.agentName,
+    registered_at: Date.now(),
+  });
+  log.info(`Agent registered: ${reg.value.agentName}`);
+  return {
+    content: [
+      textContent(JSON.stringify(agentRegistrationToJson(reg.value))),
+    ],
+    isError: false,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Input validation
+// ---------------------------------------------------------------------------
+
+type RegisterInputReconnect = { readonly mode: "reconnect"; readonly keyArg: string };
+type RegisterInputNew = { readonly mode: "new"; readonly nameArg: string };
+type RegisterInputError = { readonly mode: "error"; readonly result: CallToolResult };
+
+const extractNonEmptyString = (value: unknown): string | null =>
+  typeof value === "string" && value.length > 0 ? value : null;
+
+const parseRegisterArgs = (
+  args: Record<string, unknown>,
+): RegisterInputReconnect | RegisterInputNew | RegisterInputError => {
+  const nameArg = extractNonEmptyString(args.name);
+  const keyArg = extractNonEmptyString(args.key);
+
+  if (nameArg !== null && keyArg !== null) {
+    return { mode: "error", result: errorContent("validation: pass name OR key, not both") };
+  }
+  if (nameArg === null && keyArg === null) {
+    return { mode: "error", result: errorContent("missing_parameter: name or key required") };
+  }
+  if (keyArg !== null) {
+    return { mode: "reconnect", keyArg };
+  }
+  if (nameArg === null) {
+    return { mode: "error", result: errorContent("missing_parameter: name required") };
+  }
+  return { mode: "new", nameArg };
+};
+
 /** Create register tool handler. */
 export const createRegisterHandler = (
   db: TooManyCooksDb,
@@ -59,96 +181,19 @@ export const createRegisterHandler = (
   logger: Logger,
   setSession: SessionSetter,
 ): ToolCallback =>
-  async (args, _meta) => {
-    const nameArg =
-      typeof args["name"] === "string" ? args["name"] : null;
-    const keyArg =
-      typeof args["key"] === "string" ? args["key"] : null;
-    const hasName = nameArg !== null && nameArg.length > 0;
-    const hasKey = keyArg !== null && keyArg.length > 0;
+  async (args: Record<string, unknown>): Promise<CallToolResult> => {
+    const parsed = parseRegisterArgs(args);
 
-    if (hasName && hasKey) {
-      return errorContent("validation: pass name OR key, not both");
+    if (parsed.mode === "error") {
+      return await Promise.resolve(parsed.result);
     }
-    if (!hasName && !hasKey) {
-      return errorContent("missing_parameter: name or key required");
-    }
-
-    // Reconnect path: key only
-    if (hasKey) {
+    if (parsed.mode === "reconnect") {
       const log = logger.child({ tool: "register", mode: "reconnect" });
-      const lookupResult = db.lookupByKey(keyArg);
-      if (!lookupResult.ok) {
-        log.warn(`Reconnect failed: ${lookupResult.error.code}`);
-        return {
-          content: [
-            textContent(JSON.stringify(dbErrorToJson(lookupResult.error))),
-          ],
-          isError: true,
-        };
-      }
-      setSession(lookupResult.value, keyArg);
-      db.activate(lookupResult.value);
-      emitter.emit(EVENT_AGENT_ACTIVATED, {
-        agent_name: lookupResult.value,
-      });
-      log.info(`Agent reconnected: ${lookupResult.value}`);
-      return {
-        content: [
-          textContent(
-            JSON.stringify({
-              agent_name: lookupResult.value,
-              agent_key: keyArg,
-            }),
-          ),
-        ],
-        isError: false,
-      };
+      return await Promise.resolve(handleReconnect(db, emitter, log, setSession, parsed.keyArg));
     }
 
-    // First registration: name only
-    if (nameArg === null) {
-      return errorContent("missing_parameter: name required");
-    }
-
-    const log = logger.child({ tool: "register", agentName: nameArg });
-    let reg = db.register(nameArg);
-
-    if (!reg.ok && reg.error.message.includes("already registered")) {
-      const resetResult = db.adminResetKey(nameArg);
-      if (!resetResult.ok) {
-        log.warn(`Re-registration failed: ${resetResult.error.code}`);
-        return {
-          content: [
-            textContent(JSON.stringify(dbErrorToJson(resetResult.error))),
-          ],
-          isError: true,
-        };
-      }
-      reg = resetResult;
-    }
-
-    if (!reg.ok) {
-      log.warn(`Registration failed: ${reg.error.code}`);
-      return {
-        content: [textContent(JSON.stringify(dbErrorToJson(reg.error)))],
-        isError: true,
-      };
-    }
-
-    setSession(reg.value.agentName, reg.value.agentKey);
-    db.activate(reg.value.agentName);
-    emitter.emit(EVENT_AGENT_REGISTERED, {
-      agent_name: reg.value.agentName,
-      registered_at: Date.now(),
-    });
-    log.info(`Agent registered: ${reg.value.agentName}`);
-    return {
-      content: [
-        textContent(JSON.stringify(agentRegistrationToJson(reg.value))),
-      ],
-      isError: false,
-    };
+    const log = logger.child({ tool: "register", agentName: parsed.nameArg });
+    return await Promise.resolve(handleFirstRegistration(db, emitter, log, setSession, parsed.nameArg));
   };
 
 const errorContent = (msg: string): CallToolResult => ({

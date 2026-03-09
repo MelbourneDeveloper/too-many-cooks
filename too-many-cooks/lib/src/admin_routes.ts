@@ -4,9 +4,8 @@
 /// Streamable HTTP endpoint pushes all state changes in real-time.
 
 import express, { type Request, type Response, type Express } from "express";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { type Result } from "./result.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   type TooManyCooksDb,
   agentIdentityToJson,
@@ -46,7 +45,7 @@ const sendToServer = (
       data,
     })
     .then(
-      () => console.error(`[TMC] [PUSH] Sent OK to ${key}`),
+      () => { console.error(`[TMC] [PUSH] Sent OK to ${key}`); },
       () => {
         console.error(`[TMC] [PUSH] FAILED ${key}`);
         servers.delete(key);

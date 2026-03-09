@@ -75,7 +75,7 @@ export const createTooManyCooksServer = (
   log.debug("Database created successfully");
 
   const serverResult = createMcpServerForDb(db, cfg, log);
-  if (!serverResult.ok) return error(serverResult.error);
+  if (!serverResult.ok) {return error(serverResult.error);}
 
   return success({ server: serverResult.value, db });
 };
@@ -183,34 +183,29 @@ const registerTools = (
 ): void => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP SDK handler type mismatch
   type AnyHandler = (...args: any[]) => any;
-  server.tool(
+  server.registerTool(
     "register",
-    registerToolConfig.description,
-    registerZodSchema,
+    { description: registerToolConfig.description, inputSchema: registerZodSchema },
     createRegisterHandler(db, emitter, log, setSession) as AnyHandler,
   );
-  server.tool(
+  server.registerTool(
     "lock",
-    lockToolConfig.description,
-    lockZodSchema,
+    { description: lockToolConfig.description, inputSchema: lockZodSchema },
     createLockHandler(db, config, emitter, log, getSession) as AnyHandler,
   );
-  server.tool(
+  server.registerTool(
     "message",
-    messageToolConfig.description,
-    messageZodSchema,
+    { description: messageToolConfig.description, inputSchema: messageZodSchema },
     createMessageHandler(db, emitter, log, getSession) as AnyHandler,
   );
-  server.tool(
+  server.registerTool(
     "plan",
-    planToolConfig.description,
-    planZodSchema,
+    { description: planToolConfig.description, inputSchema: planZodSchema },
     createPlanHandler(db, emitter, log, getSession) as AnyHandler,
   );
-  server.tool(
+  server.registerTool(
     "status",
-    statusToolConfig.description,
-    statusZodSchema,
+    { description: statusToolConfig.description, inputSchema: statusZodSchema },
     createStatusHandler(db, log) as AnyHandler,
   );
 };
@@ -220,7 +215,7 @@ export const createConsoleLogger = (): Logger =>
   createLoggerWithContext(
     createLoggingContext({
       transports: [logTransport(logToConsole)],
-      minimumLogLevel: LogLevel.debug,
+      minimumLogLevel: LogLevel.DEBUG,
     }),
   );
 
@@ -229,7 +224,7 @@ const logToConsole = (
   message: LogMessage,
   minimumLogLevel: LogLevel,
 ): void => {
-  if (message.logLevel < minimumLogLevel) return;
+  if (message.logLevel < minimumLogLevel) {return;}
   const level = logLevelName(message.logLevel);
   const data = message.structuredData;
   const dataStr =

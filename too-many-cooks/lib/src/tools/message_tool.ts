@@ -79,11 +79,11 @@ const resolveIdentity = (
   getSession: SessionGetter,
 ): IdentityOk | IdentityErr => {
   const keyOverride =
-    typeof args["agent_key"] === "string" ? args["agent_key"] : null;
+    typeof args.agent_key === "string" ? args.agent_key : null;
   if (keyOverride !== null) {
     const lookupResult = db.lookupByKey(keyOverride);
     if (!lookupResult.ok)
-      return { isError: true, result: makeErrorResult(lookupResult.error) };
+      {return { isError: true, result: makeErrorResult(lookupResult.error) };}
     return {
       isError: false,
       agentName: lookupResult.value,
@@ -104,6 +104,58 @@ const resolveIdentity = (
   };
 };
 
+// ---------------------------------------------------------------------------
+// Action dispatch
+// ---------------------------------------------------------------------------
+
+const dispatchAction = (
+  action: string,
+  db: TooManyCooksDb,
+  emitter: NotificationEmitter,
+  log: Logger,
+  agentName: string,
+  agentKey: string,
+  args: Record<string, unknown>,
+): CallToolResult => {
+  switch (action) {
+    case "send":
+      return handleSend(
+        db,
+        emitter,
+        log,
+        agentName,
+        agentKey,
+        typeof args.to_agent === "string" ? args.to_agent : null,
+        typeof args.content === "string" ? args.content : null,
+      );
+    case "get":
+      return handleGet(
+        db,
+        agentName,
+        agentKey,
+        typeof args.unread_only === "boolean"
+          ? args.unread_only
+          : true,
+      );
+    case "mark_read":
+      return handleMarkRead(
+        db,
+        agentName,
+        agentKey,
+        typeof args.message_id === "string" ? args.message_id : null,
+      );
+    default:
+      return {
+        content: [
+          textContent(
+            JSON.stringify({ error: `Unknown action: ${action}` }),
+          ),
+        ],
+        isError: true,
+      };
+  }
+};
+
 /** Create message tool handler. */
 export const createMessageHandler = (
   db: TooManyCooksDb,
@@ -111,55 +163,19 @@ export const createMessageHandler = (
   logger: Logger,
   getSession: SessionGetter,
 ): ToolCallback =>
-  async (args, _meta) => {
-    const actionArg = args["action"];
+  async (args: Record<string, unknown>): Promise<CallToolResult> => {
+    const actionArg = args.action;
     if (typeof actionArg !== "string") {
-      return errorContent("missing_parameter: action is required");
+      return await Promise.resolve(errorContent("missing_parameter: action is required"));
     }
     const action = actionArg;
 
     const identity = resolveIdentity(db, args, getSession);
-    if (identity.isError) return identity.result;
+    if (identity.isError) {return await Promise.resolve(identity.result);}
     const { agentName, agentKey } = identity;
     const log = logger.child({ tool: "message", action });
 
-    switch (action) {
-      case "send":
-        return handleSend(
-          db,
-          emitter,
-          log,
-          agentName,
-          agentKey,
-          typeof args["to_agent"] === "string" ? args["to_agent"] : null,
-          typeof args["content"] === "string" ? args["content"] : null,
-        );
-      case "get":
-        return handleGet(
-          db,
-          agentName,
-          agentKey,
-          typeof args["unread_only"] === "boolean"
-            ? args["unread_only"]
-            : true,
-        );
-      case "mark_read":
-        return handleMarkRead(
-          db,
-          agentName,
-          agentKey,
-          typeof args["message_id"] === "string" ? args["message_id"] : null,
-        );
-      default:
-        return {
-          content: [
-            textContent(
-              JSON.stringify({ error: `Unknown action: ${action}` }),
-            ),
-          ],
-          isError: true,
-        };
-    }
+    return await Promise.resolve(dispatchAction(action, db, emitter, log, agentName, agentKey, args));
   };
 
 // ---------------------------------------------------------------------------
@@ -179,7 +195,7 @@ const handleSend = (
     return errorContent("send requires to_agent and content");
   }
   const result = db.sendMessage(agentName, agentKey, toAgent, content);
-  if (!result.ok) return makeErrorResult(result.error);
+  if (!result.ok) {return makeErrorResult(result.error);}
   emitter.emitToAgent(
     EVENT_MESSAGE_SENT,
     {
@@ -212,7 +228,7 @@ const handleGet = (
   unreadOnly: boolean,
 ): CallToolResult => {
   const result = db.getMessages(agentName, agentKey, { unreadOnly });
-  if (!result.ok) return makeErrorResult(result.error);
+  if (!result.ok) {return makeErrorResult(result.error);}
   return {
     content: [
       textContent(
@@ -237,7 +253,7 @@ const handleMarkRead = (
     return errorContent("mark_read requires message_id");
   }
   const result = db.markRead(messageId, agentName, agentKey);
-  if (!result.ok) return makeErrorResult(result.error);
+  if (!result.ok) {return makeErrorResult(result.error);}
   return {
     content: [textContent(JSON.stringify({ marked: true }))],
     isError: false,

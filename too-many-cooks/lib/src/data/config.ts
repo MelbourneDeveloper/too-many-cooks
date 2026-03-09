@@ -48,15 +48,15 @@ export const createDataConfigFromWorkspace = (
 
 /** Get workspace folder from TMC_WORKSPACE env var or process.cwd(). */
 export const getWorkspaceFolder = (): string =>
-  process.env["TMC_WORKSPACE"] ?? process.cwd();
+  process.env.TMC_WORKSPACE ?? process.cwd();
 
 /** Default server port. */
 export const DEFAULT_PORT = 4040;
 
 /** Get server port from TMC_PORT env var or default (4040). */
 export const getServerPort = (): number => {
-  const raw = process.env["TMC_PORT"];
-  if (raw === undefined) return DEFAULT_PORT;
+  const raw = process.env.TMC_PORT;
+  if (raw === undefined) {return DEFAULT_PORT;}
   const parsed = parseInt(raw, 10);
   return isNaN(parsed) ? DEFAULT_PORT : parsed;
 };

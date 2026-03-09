@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node build/bin/server.js",
+    "lint": "eslint .",
     "test": "node --import tsx --test test/*.ts"
   },
   "keywords": [
@@ -38,11 +39,16 @@
     "express": "^4.21.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.12",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.3",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.56.1"
   },
   "files": [
     "build/bin/server.js",

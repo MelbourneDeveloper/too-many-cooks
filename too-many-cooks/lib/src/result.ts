@@ -42,7 +42,7 @@ export const withRetry = <T>(
 ): Result<T, string> => {
   for (let attempt = 1; attempt <= policy.maxAttempts; attempt++) {
     const result = operation();
-    if (result.ok) return result;
+    if (result.ok) {return result;}
     if (attempt >= policy.maxAttempts || !isRetryable(result.error)) {
       return result;
     }
