@@ -19,11 +19,12 @@ keywords: "Too Many Cooks, MCP, multi-agent coordination, AI agents, Claude, Mod
 
     <div class="hero-code">
 {% highlight "bash" %}
-# Install globally
+# Install and start the server
 npm install -g too-many-cooks
+too-many-cooks
 
 # Add to Claude Code
-claude mcp add --transport http too-many-cooks -- too-many-cooks
+claude mcp add --transport http too-many-cooks http://localhost:4040/mcp
 {% endhighlight %}
     </div>
   </div>

@@ -4,15 +4,18 @@ Multi-agent coordination MCP server. Enables multiple AI agents to safely edit a
 
 Uses [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport so all agents connect to one shared server and receive real-time state changes. No polling. Built with TypeScript on Node.js.
 
-## Install
+## Install and Run
+
+Run directly with npx (no install required):
+
+```bash
+npx too-many-cooks
+```
+
+Or install globally:
 
 ```bash
 npm install -g too-many-cooks
-```
-
-## Start the Server
-
-```bash
 too-many-cooks
 ```
 
@@ -20,18 +23,17 @@ The server starts on **port 4040** and exposes:
 - `http://localhost:4040/mcp` - MCP Streamable HTTP endpoint (for agents)
 - `http://localhost:4040/admin/*` - Admin REST + event stream (for the VSCode extension)
 
-Set `TMC_WORKSPACE` to target a specific workspace folder (defaults to `process.cwd()`):
+To use a different port:
+
+```bash
+TMC_PORT=5050 too-many-cooks
+```
+
+To target a specific workspace folder (defaults to `process.cwd()`):
 
 ```bash
 TMC_WORKSPACE=/path/to/your/project too-many-cooks
 ```
-
-Or with npx (no global install):
-
-```bash
-npx too-many-cooks
-```
-`
 ## Configure Your AI Agent
 
 Too Many Cooks uses **Streamable HTTP** transport, not stdio. All agents connect to the same running server over HTTP so they can see each other's locks, messages, and plans in real-time. Start the server first, then point your agent at it.
