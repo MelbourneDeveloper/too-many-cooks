@@ -4,6 +4,20 @@ SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPTS/.." && pwd)"
 MCP_DIR="$ROOT/too-many-cooks"
 VSIX_DIR="$ROOT/too_many_cooks_vscode_extension"
+PORT=4040
+
+# Kill any existing server on the port
+kill_port() {
+  local pids
+  pids=$(lsof -ti :"$PORT" 2>/dev/null || true)
+  if [ -n "$pids" ]; then
+    echo "Killing existing processes on port $PORT: $pids"
+    echo "$pids" | xargs kill -9 2>/dev/null || true
+    sleep 1
+  fi
+}
+
+kill_port
 
 # 1. Build MCP server
 cd "$MCP_DIR"
@@ -19,13 +33,16 @@ npm run compile:test
 # 3. Start MCP server
 cleanup_mcp() { [ -n "${MCP_PID:-}" ] && kill "$MCP_PID" 2>/dev/null || true; }
 trap cleanup_mcp EXIT
+
+kill_port
+
 cd "$MCP_DIR"
-node --import tsx bin/server.ts &
+node build/bin/server.js &
 MCP_PID=$!
 
 # Poll until server is ready (max 10s)
 for i in $(seq 1 50); do
-  if curl -sf http://localhost:4040/admin/status >/dev/null 2>&1; then
+  if curl -sf http://localhost:$PORT/admin/status >/dev/null 2>&1; then
     echo "MCP server ready (attempt $i)"
     break
   fi

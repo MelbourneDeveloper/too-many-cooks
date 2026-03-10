@@ -45,7 +45,20 @@ const main = async (): Promise<void> => {
   }
 };
 
-/** Kill any existing process listening on the given port. */
+/** Maximum time to wait for port to become free after killing a process. */
+const PORT_FREE_TIMEOUT_MS = 5000;
+
+/** Check whether a port has any process listening via lsof. */
+const isPortFree = (port: number): boolean => {
+  try {
+    const out = execSync(`lsof -ti :${String(port)}`, { encoding: "utf8" }).trim();
+    return out.length === 0;
+  } catch {
+    return true;
+  }
+};
+
+/** Kill any existing process listening on the given port and wait for it to be freed. */
 const killExistingProcess = (port: number, log: Logger): void => {
   try {
     const output = execSync(`lsof -ti :${String(port)}`, { encoding: "utf8" }).trim();
@@ -53,8 +66,17 @@ const killExistingProcess = (port: number, log: Logger): void => {
     const pids = output.split("\n").map((pid) => pid.trim()).filter((pid) => pid.length > 0);
     for (const pid of pids) {
       log.info("Killing existing process on port", { port, pid });
-      execSync(`kill ${pid}`);
+      execSync(`kill -9 ${pid}`);
     }
+    const start = Date.now();
+    while (Date.now() - start < PORT_FREE_TIMEOUT_MS) {
+      if (isPortFree(port)) {
+        log.info("Port is now free", { port });
+        return;
+      }
+      execSync(`sleep 0.1`);
+    }
+    log.warn("Port still in use after timeout — proceeding anyway", { port });
   } catch {
     // lsof exits non-zero when no process found — that's fine
   }
