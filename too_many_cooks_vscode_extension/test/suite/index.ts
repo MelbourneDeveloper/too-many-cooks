@@ -83,15 +83,23 @@ export async function run(): Promise<void> {
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures) => {
-      writeLog(`Test run complete: ${String(failures)} failures`);
+      const completionMsg: string = `Test run complete: ${String(failures)} failures`;
+      writeLog(completionMsg);
+      // Synchronous write ensures the completion marker is on disk even if
+      // the process exits before the stream flushes (CI race condition fix).
+      try { fs.appendFileSync(logFile, `[${new Date().toISOString()}] [TEST-SUITE] ${completionMsg}\n`); } catch { /* best effort */ }
+      const settle = (): void => {
+        if (failures > 0) {
+          reject(new Error(`${failures} tests failed.`));
+        } else {
+          resolve();
+        }
+      };
       if (logStream !== null) {
-        logStream.end();
+        logStream.end(settle);
         logStream = null;
-      }
-      if (failures > 0) {
-        reject(new Error(`${failures} tests failed.`));
       } else {
-        resolve();
+        settle();
       }
     });
 

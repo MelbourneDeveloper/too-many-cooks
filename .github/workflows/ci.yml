@@ -20,7 +20,7 @@ jobs:
             too-many-cooks/package-lock.json
             too_many_cooks_vscode_extension/package-lock.json
 
-      # ── MCP Server ──────────────────────────────────────
+      # ── Install & Build ────────────────────────────────
       - name: Install MCP server dependencies
         working-directory: too-many-cooks
         run: npm ci
@@ -29,28 +29,48 @@ jobs:
         working-directory: too-many-cooks
         run: npm run build
 
-      - name: Lint MCP server
-        working-directory: too-many-cooks
-        run: npm run lint
-
-      - name: Test MCP server
-        working-directory: too-many-cooks
-        run: npm test
-
-      # ── VSCode Extension ────────────────────────────────
       - name: Install extension dependencies
         working-directory: too_many_cooks_vscode_extension
         run: npm ci
-
-      - name: Lint extension
-        working-directory: too_many_cooks_vscode_extension
-        run: npm run lint
 
       - name: Compile extension and tests
         working-directory: too_many_cooks_vscode_extension
         run: npm run pretest
 
-      - name: Run extension tests
+      # ── Lint ───────────────────────────────────────────
+      - name: Lint MCP server
+        working-directory: too-many-cooks
+        run: npm run lint
+
+      - name: Lint extension
+        working-directory: too_many_cooks_vscode_extension
+        run: npm run lint
+
+      # ── Start MCP server ──────────────────────────────
+      - name: Start MCP server
+        working-directory: too-many-cooks
+        run: node build/bin/server.js &
+        env:
+          TMC_PORT: '4040'
+
+      - name: Wait for MCP server to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:4040/admin/status > /dev/null 2>&1; then
+              echo "MCP server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MCP server failed to start"
+          exit 1
+
+      # ── Tests ──────────────────────────────────────────
+      - name: Test MCP server
+        working-directory: too-many-cooks
+        run: npm test
+
+      - name: Test extension
         uses: coactions/setup-xvfb@v1
         with:
           run: npm test
