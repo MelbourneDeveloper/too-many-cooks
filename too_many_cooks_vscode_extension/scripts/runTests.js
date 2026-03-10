@@ -5,7 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { runTests } = require('@vscode/test-electron');
+const { runTests, downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } = require('@vscode/test-electron');
 
 const LOG_DIR = path.resolve(__dirname, '..', 'logs');
 const LOG_FILE = path.join(
@@ -64,26 +64,23 @@ async function main() {
   logToFile('INFO', 'Extension development path:', extensionDevelopmentPath);
   logToFile('INFO', 'Extension tests path:', extensionTestsPath);
 
-  // On CI (or when VSCODE_EXECUTABLE_PATH is unset), let @vscode/test-electron
-  // download a fresh copy of VSCode. Only use a local install when explicitly set.
-  const vscodeExecutablePath = process.env.VSCODE_EXECUTABLE_PATH || undefined;
-
   try {
-    // The code CLI may return immediately (forks VSCode process).
-    // We capture the initial exit code but also poll the log for results.
-    const runOptions = {
+    // Use VSCODE_EXECUTABLE_PATH if set (local dev), otherwise download VSCode
+    const vscodeExecutablePath = process.env.VSCODE_EXECUTABLE_PATH || await downloadAndUnzipVSCode();
+    const [cliPath, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath);
+
+    logToFile('INFO', 'VSCode CLI path:', cliPath);
+
+    const exitCode = await runTests({
+      vscodeExecutablePath: cliPath,
       extensionDevelopmentPath,
       extensionTestsPath,
-      launchArgs: ['--user-data-dir', '/tmp/vsc-tmc-test', extensionDevelopmentPath],
+      launchArgs: [...cliArgs, extensionDevelopmentPath],
       extensionTestsEnv: {
         VERBOSE_LOGGING: 'true',
         TMC_TEST_LOG_FILE: LOG_FILE,
       },
-    };
-    if (vscodeExecutablePath) {
-      runOptions.vscodeExecutablePath = vscodeExecutablePath;
-    }
-    const exitCode = await runTests(runOptions);
+    });
 
     logToFile('INFO', 'CLI exit code:', exitCode);
 

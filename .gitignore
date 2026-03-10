@@ -24,3 +24,5 @@ website/coverage/
 test-results/
 
 codegen/.dart_tool/
+
+too_many_cooks_vscode_extension/coverage/

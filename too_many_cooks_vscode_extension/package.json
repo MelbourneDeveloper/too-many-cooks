@@ -161,6 +161,8 @@
     "lint:strict": "eslint src/**/*.ts --max-warnings=0 --rule 'no-warning-comments: [\"error\", {\"terms\": [\"todo\", \"fixme\", \"xxx\"], \"location\": \"anywhere\"}]'",
     "pretest": "npm run compile:test",
     "test": "node scripts/runTests.js",
+    "test:pure": "npm run compile:test && node --test out/test/pure/*.test.js",
+    "test:coverage": "npm run compile:test && c8 --reporter=text --reporter=lcov --reports-dir=coverage --src=src node --test out/test/pure/*.test.js",
     "package": "vsce package"
   },
   "_moduleAliases": {
@@ -181,9 +183,11 @@
     "@typescript-eslint/parser": "^7.18.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.3.9",
+    "c8": "^11.0.0",
     "eslint": "^8.57.0",
     "glob": "^10.5.0",
     "mocha": "^10.2.0",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "5.6.0"
   }
 }

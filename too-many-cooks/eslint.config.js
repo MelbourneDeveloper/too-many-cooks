@@ -282,10 +282,12 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-member-access": "warn",
       "@typescript-eslint/no-floating-promises": "off",
       "@typescript-eslint/no-unnecessary-condition": "off",
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/array-type": "off",
       "@typescript-eslint/explicit-function-return-type": "off",
     },
   },
   {
-    ignores: ["build/**", "node_modules/**", "eslint.config.js"],
+    ignores: ["build/**", "node_modules/**", "coverage/**", "eslint.config.js"],
   },
 );
