@@ -278,12 +278,28 @@ strong {
   flex-shrink: 0;
 }
 
+.logo-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
 .logo-text {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
+}
+
+.hero-logo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  margin-inline: auto;
+  display: block;
+  margin-bottom: var(--space-6);
+  position: relative;
 }
 
 .nav-links {

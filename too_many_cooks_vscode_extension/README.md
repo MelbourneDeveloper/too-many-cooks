@@ -1,12 +1,35 @@
-# Too Many Cooks - VSCode Extension
+<div align="center">
 
-Real-time dashboard for monitoring and managing multi-agent coordination. See which AI agents are active, what files are locked, and what messages are being exchanged — all from your editor.
+<img src="https://raw.githubusercontent.com/MelbourneDeveloper/too-many-cooks/main/website/src/assets/images/tmclogo.png" alt="Too Many Cooks" width="120">
+
+# Too Many Cooks — VSCode Extension
+
+**Real-time dashboard for multi-agent coordination**
+
+[![Version](https://img.shields.io/badge/version-0.4.0-c46d3b)](https://github.com/MelbourneDeveloper/too-many-cooks)
+[![License: MIT](https://img.shields.io/badge/license-MIT-3b9b8f)](LICENSE)
+[![VSCode](https://img.shields.io/badge/vscode-%3E%3D1.85-1a1a1a)](https://code.visualstudio.com)
+
+<br>
+
+See which AI agents are active, what files are locked,<br>
+and what messages are being exchanged — all from your editor.
+
+<br>
+
+[Install the MCP Server](#requirements) &#8226; [Features](#features) &#8226; [Build](#build) &#8226; [Documentation](https://toomanycooks.dev)
+
+</div>
+
+<br>
+
+---
+
+<br>
 
 ## Requirements
 
-The Too Many Cooks MCP server must be running. It uses [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport on port 4040.
-
-### 1. Start the MCP server
+The [**Too Many Cooks MCP server**](https://www.npmjs.com/package/too-many-cooks) must be running. Install and start it:
 
 ```bash
 npx too-many-cooks
@@ -19,32 +42,52 @@ npm install -g too-many-cooks
 too-many-cooks
 ```
 
-The server starts on `http://localhost:4040/mcp`.
-
-To use a different port, set the `TMC_PORT` environment variable:
+The server starts on `http://localhost:4040`. To use a different port:
 
 ```bash
 TMC_PORT=5050 npx too-many-cooks
 ```
 
-### 2. Connect your AI agents
+Then connect your AI agents to the server:
 
-Each agent connects to the MCP server via Streamable HTTP. Add the server to your agent's MCP configuration:
+<table>
+<tr>
+<td width="50%">
 
-**Claude Code** (`.mcp.json` in your project root):
+### Claude Code
+
+```bash
+claude mcp add \
+  --transport http \
+  too-many-cooks \
+  http://localhost:4040/mcp
+```
+
+</td>
+<td width="50%">
+
+### Cursor
+
+`.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "too-many-cooks": {
-      "type": "streamable-http",
       "url": "http://localhost:4040/mcp"
     }
   }
 }
 ```
 
-**Cursor** (`.cursor/mcp.json`):
+</td>
+</tr>
+<tr>
+<td>
+
+### Cline
+
+Add via **Cline MCP Settings**:
 
 ```json
 {
@@ -56,20 +99,31 @@ Each agent connects to the MCP server via Streamable HTTP. Add the server to you
 }
 ```
 
-**Cline** (MCP settings in VSCode):
+</td>
+<td>
 
-Add a new MCP server with URL `http://localhost:4040/mcp` and transport type `streamable-http`.
+### Codex
 
-### 3. Install the extension
+```bash
+codex --mcp-server \
+  http://localhost:4040/mcp
+```
 
-Install from the `.vsix` file or the VSCode marketplace. The extension auto-connects to the server on port 4040 when it starts.
+</td>
+</tr>
+</table>
 
-If the server runs on a non-default port, change it in VSCode settings:
+<br>
 
-- **Setting:** `tooManyCooks.port`
-- **Default:** `4040`
+## Install the Extension
 
-Or add to `.vscode/settings.json`:
+Install from a `.vsix` file or the VSCode marketplace. The extension auto-connects to the server on port 4040.
+
+If the server runs on a non-default port, set it in VSCode settings:
+
+| Setting | Default | Description |
+|:--------|:--------|:------------|
+| `tooManyCooks.port` | `4040` | MCP server port |
 
 ```json
 {
@@ -77,19 +131,48 @@ Or add to `.vscode/settings.json`:
 }
 ```
 
-## How it works
+<br>
+
+## Features
+
+<table>
+<tr>
+<td width="50%">
+
+### Agents Tree View
+See which agents are online and active in the sidebar.
+
+### File Locks Tree View
+See which files are locked and by whom. Expired locks are highlighted.
+
+### Messages Panel
+Read inter-agent messages in real-time as they arrive.
+
+</td>
+<td width="50%">
+
+### Plans Panel
+See what each agent is working on, their goals and current tasks.
+
+### Admin Commands
+Force-release locks, delete agents, reset keys, and send messages from the command palette.
+
+### Real-Time Updates
+State changes arrive via MCP Streamable HTTP push. No polling.
+
+</td>
+</tr>
+</table>
+
+<br>
+
+## How It Works
 
 - Communicates with the TMC server via `/admin/*` REST endpoints
 - Receives real-time state changes via MCP Streamable HTTP push (no polling)
 - Does **not** access the database directly
 
-## Features
-
-- **Agents tree view** — see which agents are online and active
-- **File Locks tree view** — see which files are locked and by whom
-- **Messages panel** — read inter-agent messages in real-time
-- **Plans panel** — see what each agent is working on
-- **Admin commands** — force-release locks, delete agents, reset keys, send messages
+<br>
 
 ## Build
 
@@ -97,7 +180,7 @@ Or add to `.vscode/settings.json`:
 bash scripts/vsix.sh build
 ```
 
-## Install
+## Install from Source
 
 ```bash
 bash scripts/vsix.sh install
@@ -108,6 +191,14 @@ bash scripts/vsix.sh install
 ```bash
 npm test
 ```
+
+## Test Coverage (Pure Logic)
+
+```bash
+npm run test:coverage
+```
+
+<br>
 
 ## License
 
