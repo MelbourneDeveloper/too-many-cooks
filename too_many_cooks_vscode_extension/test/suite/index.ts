@@ -1,5 +1,6 @@
 // Test suite index - Mocha test runner configuration
 
+import 'module-alias/register';
 import * as fs from 'fs';
 import * as path from 'path';
 import Mocha from 'mocha';

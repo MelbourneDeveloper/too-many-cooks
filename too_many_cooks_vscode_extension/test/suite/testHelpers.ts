@@ -195,7 +195,7 @@ export function cleanDatabase(): void {
 // Dialog mocking via DialogService (not monkey-patching vscode.window)
 // ============================================================================
 
-import { setDialogService, resetDialogService } from 'services/dialogService';
+import { setDialogService, resetDialogService } from '../../src/services/dialogService';
 
 let mocksInstalled = false;
 
