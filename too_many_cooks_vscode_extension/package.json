@@ -159,7 +159,7 @@
     "lint": "eslint src/**/*.ts --max-warnings=0",
     "lint:fix": "eslint src/**/*.ts --fix",
     "lint:strict": "eslint src/**/*.ts --max-warnings=0 --rule 'no-warning-comments: [\"error\", {\"terms\": [\"todo\", \"fixme\", \"xxx\"], \"location\": \"anywhere\"}]'",
-    "pretest": "npm run compile:test",
+    "pretest": "npm run compile && npm run compile:test",
     "test": "node scripts/runTests.js",
     "test:pure": "npm run compile:test && node --test out/test/pure/*.test.js",
     "test:coverage": "npm run compile:test && c8 --reporter=text --reporter=lcov --reports-dir=coverage --src=src node --test out/test/pure/*.test.js",
