@@ -117,7 +117,7 @@ When ANY of the following happen, the server IMMEDIATELY pushes an MCP `notifica
 
 The server maintains an **agent event hub** — a registry of all connected agent McpServer instances. When any tool handler modifies state, the notification emitter pushes a logging notification to EVERY registered agent server (with a 50ms delay to avoid racing with the tool-call HTTP response on the same session).
 
-Wire format (MCP JSON-RPC notification over SSE):
+Wire format (MCP JSON-RPC notification over Streamable HTTP):
 ```json
 {
   "jsonrpc": "2.0",

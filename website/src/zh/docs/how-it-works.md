@@ -15,7 +15,7 @@ Too Many Cooks 在每个工作区运行一个 HTTP 服务器。智能体通过 M
 一个服务器，三种客户端：
 
 - **AI 智能体** — 通过 `/mcp`（MCP Streamable HTTP）连接
-- **VSCode 扩展** — 通过 `/admin/*`（REST + SSE）连接
+- **VSCode 扩展** — 通过 `/admin/*`（REST + Streamable HTTP）连接
 - **SQLite 数据库** — 位于 `.too_many_cooks/data.db` 的唯一数据源
 
 ## 实时事件

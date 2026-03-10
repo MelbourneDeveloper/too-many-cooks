@@ -1,10 +1,10 @@
-/// E2E agent streaming test — spawn MCP server, open SSE stream
-/// on /mcp for an AGENT session, trigger state changes from
+/// E2E agent streaming test — spawn MCP server, open Streamable HTTP
+/// stream on /mcp for an AGENT session, trigger state changes from
 /// another agent, ASSERT that notifications arrive over the
-/// agent's SSE stream.
+/// agent's stream.
 ///
 /// This PROVES that agents receive streamed notifications over
-/// their Streamable HTTP SSE connection.
+/// their Streamable HTTP connection.
 
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
@@ -64,24 +64,24 @@ const sleep = async (ms: number): Promise<void> =>
 const parseJson = (text: string): Record<string, unknown> =>
   JSON.parse(text) as Record<string, unknown>;
 
-const extractEventType = (sseData: string): string | undefined => {
-  const json = parseJson(sseData);
+const extractEventType = (streamData: string): string | undefined => {
+  const json = parseJson(streamData);
   const params = json.params as Record<string, unknown> | undefined;
   const data = params?.data as Record<string, unknown> | undefined;
   return data?.event as string | undefined;
 };
 
 // ============================================================
-// Agent SSE Client — opens GET /mcp with agent session ID
+// Agent Stream Client — opens GET /mcp with agent session ID
 // ============================================================
 
-class AgentSseClient {
+class AgentStreamClient {
   private readonly events: string[] = [];
   private consumed = 0;
   private controller: AbortController | undefined;
 
-  static async connect(sessionId: string): Promise<AgentSseClient> {
-    const client = new AgentSseClient();
+  static async connect(sessionId: string): Promise<AgentStreamClient> {
+    const client = new AgentStreamClient();
     client.controller = new AbortController();
 
     const headers: Record<string, string> = {
@@ -310,7 +310,7 @@ describe("agent_streaming_e2e_test", () => {
     fs.rmSync(tmpWorkspace, { recursive: true, force: true });
   });
 
-  it("agent receives message_sent notification via SSE", async () => {
+  it("agent receives message_sent notification via stream", async () => {
     await resetServer();
     const agent1 = new McpClient();
     const agent2 = new McpClient();
@@ -325,7 +325,7 @@ describe("agent_streaming_e2e_test", () => {
     );
     const key1 = reg1.agent_key as string;
 
-    const sse = await AgentSseClient.connect(agent2.sessionId);
+    const stream = await AgentStreamClient.connect(agent2.sessionId);
 
     await agent1.callTool("message", {
       action: "send",
@@ -334,15 +334,15 @@ describe("agent_streaming_e2e_test", () => {
       content: TEST_MESSAGE_CONTENT,
     });
 
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.strictEqual(events.length > 0, true);
     const eventType = extractEventType(events[0]);
     assert.strictEqual(eventType, EVENT_MESSAGE_SENT);
   });
 
-  it("agent receives lock_acquired notification via SSE", async () => {
+  it("agent receives lock_acquired notification via stream", async () => {
     await resetServer();
     const agent1 = new McpClient();
     const agent2 = new McpClient();
@@ -355,7 +355,7 @@ describe("agent_streaming_e2e_test", () => {
     await agent2.callTool("register", { name: AGENT_2_NAME });
     const key1 = reg1.agent_key as string;
 
-    const sse = await AgentSseClient.connect(agent2.sessionId);
+    const stream = await AgentStreamClient.connect(agent2.sessionId);
 
     await agent1.callTool("lock", {
       action: "acquire",
@@ -364,15 +364,15 @@ describe("agent_streaming_e2e_test", () => {
       reason: TEST_LOCK_REASON,
     });
 
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.strictEqual(events.length > 0, true);
     const eventType = extractEventType(events[0]);
     assert.strictEqual(eventType, EVENT_LOCK_ACQUIRED);
   });
 
-  it("agent receives agent_registered notification via SSE", async () => {
+  it("agent receives agent_registered notification via stream", async () => {
     await resetServer();
     const agent1 = new McpClient();
     const agent2 = new McpClient();
@@ -382,20 +382,20 @@ describe("agent_streaming_e2e_test", () => {
     await agent1.callTool("register", { name: AGENT_1_NAME });
     await agent2.callTool("register", { name: AGENT_2_NAME });
 
-    const sse = await AgentSseClient.connect(agent2.sessionId);
+    const stream = await AgentStreamClient.connect(agent2.sessionId);
 
     // Register a third agent — agent2 should get notified
     await agent1.callTool("register", { name: AGENT_3_NAME });
 
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.strictEqual(events.length > 0, true);
     const eventType = extractEventType(events[0]);
     assert.strictEqual(eventType, EVENT_AGENT_REGISTERED);
   });
 
-  it("agent receives plan_updated notification via SSE", async () => {
+  it("agent receives plan_updated notification via stream", async () => {
     await resetServer();
     const agent1 = new McpClient();
     const agent2 = new McpClient();
@@ -408,7 +408,7 @@ describe("agent_streaming_e2e_test", () => {
     await agent2.callTool("register", { name: AGENT_2_NAME });
     const key1 = reg1.agent_key as string;
 
-    const sse = await AgentSseClient.connect(agent2.sessionId);
+    const stream = await AgentStreamClient.connect(agent2.sessionId);
 
     await agent1.callTool("plan", {
       action: "update",
@@ -417,15 +417,15 @@ describe("agent_streaming_e2e_test", () => {
       current_task: TEST_TASK,
     });
 
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.strictEqual(events.length > 0, true);
     const eventType = extractEventType(events[0]);
     assert.strictEqual(eventType, EVENT_PLAN_UPDATED);
   });
 
-  it("agent receives lock_released notification via SSE", async () => {
+  it("agent receives lock_released notification via stream", async () => {
     await resetServer();
     const agent1 = new McpClient();
     const agent2 = new McpClient();
@@ -446,7 +446,7 @@ describe("agent_streaming_e2e_test", () => {
       reason: TEST_LOCK_REASON,
     });
 
-    const sse = await AgentSseClient.connect(agent2.sessionId);
+    const stream = await AgentStreamClient.connect(agent2.sessionId);
 
     // Release the lock
     await agent1.callTool("lock", {
@@ -455,8 +455,8 @@ describe("agent_streaming_e2e_test", () => {
       agent_key: key1,
     });
 
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.strictEqual(events.length > 0, true);
     const eventType = extractEventType(events[0]);
@@ -473,13 +473,13 @@ describe("agent_streaming_e2e_test", () => {
     await agent1.callTool("register", { name: AGENT_1_NAME });
     await agent2.callTool("register", { name: AGENT_2_NAME });
 
-    const sse = await AgentSseClient.connect(agent2.sessionId);
+    const stream = await AgentStreamClient.connect(agent2.sessionId);
 
     // Register agent3 to trigger a notification
     await agent1.callTool("register", { name: AGENT_3_NAME });
 
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.strictEqual(events.length > 0, true);
 

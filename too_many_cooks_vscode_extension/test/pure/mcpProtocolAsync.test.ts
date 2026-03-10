@@ -53,6 +53,26 @@ function startTestServer(): Promise<void> {
             return;
           }
 
+          if (method === 'test/error-with-message') {
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+              id: parsed.id,
+              jsonrpc: '2.0',
+              error: { code: -32600, message: 'Invalid request' },
+            }));
+            return;
+          }
+
+          if (method === 'test/error-no-message') {
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+              id: parsed.id,
+              jsonrpc: '2.0',
+              error: { code: -32600 },
+            }));
+            return;
+          }
+
           if (method === 'test/non-record-result') {
             res.writeHead(200, { 'content-type': 'application/json' });
             res.end(JSON.stringify({
@@ -71,34 +91,6 @@ function startTestServer(): Promise<void> {
         if (url === '/mcp-no-session') {
           res.writeHead(200, { 'content-type': 'application/json' });
           res.end(JSON.stringify({ id: 1, jsonrpc: '2.0', result: {} }));
-          return;
-        }
-
-        if (url === '/mcp-error') {
-          const parsed: Record<string, unknown> = JSON.parse(body) as Record<string, unknown>;
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({
-            id: parsed.id,
-            jsonrpc: '2.0',
-            error: { code: -32600, message: 'Invalid request' },
-          }));
-          return;
-        }
-
-        if (url === '/mcp-error-no-msg') {
-          const parsed: Record<string, unknown> = JSON.parse(body) as Record<string, unknown>;
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({
-            id: parsed.id,
-            jsonrpc: '2.0',
-            error: { code: -32600 },
-          }));
-          return;
-        }
-
-        if (url === '/mcp-empty') {
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end('');
           return;
         }
 
@@ -159,15 +151,34 @@ describe('mcpProtocol async', () => {
     assert.deepStrictEqual(result, {});
   });
 
-  it('mcpJsonRpcRequest throws on empty response', async () => {
+  it('mcpJsonRpcRequest throws on error with message', async () => {
     await assert.rejects(
       async (): Promise<void> => {
         await mcpJsonRpcRequest({
-          baseUrl: BASE_URL.replace('/mcp', ''),
-          method: 'test',
+          baseUrl: BASE_URL,
+          method: 'test/error-with-message',
           params: {},
-          sessionId: null,
+          sessionId: 'test',
         });
+      },
+      (err: unknown): boolean => {
+        return err instanceof Error && err.message === 'Invalid request';
+      },
+    );
+  });
+
+  it('mcpJsonRpcRequest throws on error without message', async () => {
+    await assert.rejects(
+      async (): Promise<void> => {
+        await mcpJsonRpcRequest({
+          baseUrl: BASE_URL,
+          method: 'test/error-no-message',
+          params: {},
+          sessionId: 'test',
+        });
+      },
+      (err: unknown): boolean => {
+        return err instanceof Error && err.message === 'Error';
       },
     );
   });

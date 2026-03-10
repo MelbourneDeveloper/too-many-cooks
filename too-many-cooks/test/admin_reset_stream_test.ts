@@ -1,11 +1,11 @@
-/// Test: admin SSE stream survives /admin/reset.
+/// Test: admin stream survives /admin/reset.
 ///
 /// BUG: /admin/reset clears hub.servers and hub.transports,
-/// which kills the admin SSE event push for any connected
+/// which kills the admin event push for any connected
 /// VSIX clients. After reset, no admin events are delivered
-/// via SSE until the client reconnects.
+/// via Streamable HTTP until the client reconnects.
 ///
-/// This test proves that an admin SSE stream established
+/// This test proves that an admin stream established
 /// BEFORE a reset continues to receive events AFTER the
 /// reset — exactly like the VSIX extension's lifecycle.
 
@@ -41,7 +41,7 @@ const sleep = async (ms: number): Promise<void> =>
 let tmpWorkspace = '';
 
 const spawnServer = (): ChildProcess => {
-  tmpWorkspace = fs.mkdtempSync('/tmp/tmc-admin-reset-sse-');
+  tmpWorkspace = fs.mkdtempSync('/tmp/tmc-admin-reset-stream-');
   return spawn('node', [...SERVER_NODE_ARGS, SERVER_BINARY], {
     stdio: ['pipe', 'pipe', 'inherit'],
     env: { ...process.env, TMC_PORT: String(TEST_PORT), TMC_WORKSPACE: tmpWorkspace },
@@ -80,7 +80,7 @@ const resetServer = async (): Promise<void> => {
 };
 
 // ============================================================
-// Admin SSE Client
+// Admin Stream Client
 // ============================================================
 
 const initAdminSession = async (): Promise<string> => {
@@ -91,7 +91,7 @@ const initAdminSession = async (): Promise<string> => {
     params: {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: 'admin-reset-sse-test', version: '1.0.0' },
+      clientInfo: { name: 'admin-reset-stream-test', version: '1.0.0' },
     },
   });
 
@@ -127,14 +127,14 @@ const initAdminSession = async (): Promise<string> => {
   return sessionId;
 };
 
-class AdminSseClient {
+class AdminStreamClient {
   private readonly events: string[] = [];
   private consumed = 0;
   private controller: AbortController | undefined;
 
-  static async connect(): Promise<AdminSseClient> {
+  static async connect(): Promise<AdminStreamClient> {
     const sessionId = await initAdminSession();
-    const client = new AdminSseClient();
+    const client = new AdminStreamClient();
     client.controller = new AbortController();
 
     const headers: Record<string, string> = {
@@ -307,7 +307,7 @@ class McpClient {
 // Tests
 // ============================================================
 
-describe('admin_reset_sse_test', () => {
+describe('admin_reset_stream_test', () => {
   let serverProcess: ChildProcess;
 
   before(async () => {
@@ -320,29 +320,29 @@ describe('admin_reset_sse_test', () => {
     fs.rmSync(tmpWorkspace, { recursive: true, force: true });
   });
 
-  it('admin SSE stream receives events AFTER /admin/reset', async () => {
-    // 1. Open admin SSE stream (like VSIX does on connect)
-    const sse = await AdminSseClient.connect();
+  it('admin stream receives events AFTER /admin/reset', async () => {
+    // 1. Open admin stream (like VSIX does on connect)
+    const stream = await AdminStreamClient.connect();
 
     // 2. Reset server (like VSIX streaming test suiteSetup)
     await resetServer();
 
     // 3. Consume any events from the reset itself
     //    (state_reset is sent BEFORE hub.servers is cleared)
-    await sse.waitForEvents(1);
+    await stream.waitForEvents(1);
 
     // 4. Create MCP session and register agent AFTER reset
     const mcpClient = new McpClient();
     await mcpClient.initSession();
     await mcpClient.callTool('register', { name: 'post-reset-agent' });
 
-    // 5. ASSERT: SSE stream MUST still receive the
+    // 5. ASSERT: stream MUST still receive the
     //    agent_registered event (sent AFTER reset cleared
     //    hub.servers). This is the bug: after reset clears
     //    hub.servers, pushEvent iterates an empty map and
     //    delivers nothing.
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.strictEqual(
       events.length > 0,

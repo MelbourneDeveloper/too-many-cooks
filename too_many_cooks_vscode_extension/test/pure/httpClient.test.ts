@@ -33,15 +33,15 @@ describe('parseStreamableHttpResponse', () => {
     assert.strictEqual(result.id, 1);
   });
 
-  it('parses SSE event-stream format', () => {
-    const sseText: string = 'event: message\ndata: {"id":1,"result":{"content":[]}}\n\n';
-    const result: Record<string, unknown> = parseStreamableHttpResponse(sseText);
+  it('parses Streamable HTTP event-stream format', () => {
+    const streamText: string = 'event: message\ndata: {"id":1,"result":{"content":[]}}\n\n';
+    const result: Record<string, unknown> = parseStreamableHttpResponse(streamText);
     assert.strictEqual(result.id, 1);
   });
 
-  it('skips non-data SSE lines', () => {
-    const sseText: string = 'event: message\nid: 123\ndata: {"id":1}\n\n';
-    const result: Record<string, unknown> = parseStreamableHttpResponse(sseText);
+  it('skips non-data stream lines', () => {
+    const streamText: string = 'event: message\nid: 123\ndata: {"id":1}\n\n';
+    const result: Record<string, unknown> = parseStreamableHttpResponse(streamText);
     assert.strictEqual(result.id, 1);
   });
 
@@ -54,7 +54,7 @@ describe('parseStreamableHttpResponse', () => {
     );
   });
 
-  it('throws for empty SSE with no parseable data', () => {
+  it('throws for empty stream with no parseable data', () => {
     assert.throws(
       (): void => { parseStreamableHttpResponse('event: message\nid: 123\n\n'); },
       (err: unknown): boolean => {
@@ -72,15 +72,15 @@ describe('parseStreamableHttpResponse', () => {
     );
   });
 
-  it('skips unparseable SSE data lines', () => {
-    const sseText: string = 'data: not-valid-json\ndata: {"id":2}\n\n';
-    const result: Record<string, unknown> = parseStreamableHttpResponse(sseText);
+  it('skips unparseable stream data lines', () => {
+    const streamText: string = 'data: not-valid-json\ndata: {"id":2}\n\n';
+    const result: Record<string, unknown> = parseStreamableHttpResponse(streamText);
     assert.strictEqual(result.id, 2);
   });
 
-  it('skips SSE data lines that parse to non-records', () => {
-    const sseText: string = 'data: "just-a-string"\ndata: 42\ndata: {"id":3}\n\n';
-    const result: Record<string, unknown> = parseStreamableHttpResponse(sseText);
+  it('skips stream data lines that parse to non-records', () => {
+    const streamText: string = 'data: "just-a-string"\ndata: 42\ndata: {"id":3}\n\n';
+    const result: Record<string, unknown> = parseStreamableHttpResponse(streamText);
     assert.strictEqual(result.id, 3);
   });
 });

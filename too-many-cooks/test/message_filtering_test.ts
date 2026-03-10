@@ -26,20 +26,20 @@ const EVENT_POLL_DELAY_MS = 50;
 const parseJson = (text: string): Record<string, unknown> =>
   JSON.parse(text) as Record<string, unknown>;
 
-const extractEventType = (sseData: string): string | undefined => {
-  const json = parseJson(sseData);
+const extractEventType = (streamData: string): string | undefined => {
+  const json = parseJson(streamData);
   const params = json.params as Record<string, unknown> | undefined;
   const data = params?.data as Record<string, unknown> | undefined;
   return data?.event as string | undefined;
 };
 
-class AgentSseClient {
+class AgentStreamClient {
   private readonly events: string[] = [];
   private consumed = 0;
   private controller: AbortController | undefined;
 
-  static async connect(sessionId: string): Promise<AgentSseClient> {
-    const client = new AgentSseClient();
+  static async connect(sessionId: string): Promise<AgentStreamClient> {
+    const client = new AgentStreamClient();
     client.controller = new AbortController();
     const signal = client.controller.signal;
 
@@ -284,11 +284,11 @@ describe("message filtering", () => {
 
     const senderKey = senderReg.agent_key as string;
 
-    // Open SSE streams AFTER registration to avoid buffered events.
-    const recipientSse = await AgentSseClient.connect(
+    // Open streams AFTER registration to avoid buffered events.
+    const recipientStream = await AgentStreamClient.connect(
       recipient.getSessionId(),
     );
-    const bystanderSse = await AgentSseClient.connect(
+    const bystanderStream = await AgentStreamClient.connect(
       bystander.getSessionId(),
     );
 
@@ -300,11 +300,11 @@ describe("message filtering", () => {
       content: "hello recipient",
     });
 
-    const recipientEvents = await recipientSse.waitForEvents(1);
-    const bystanderEvents = await bystanderSse.waitForEvents(1);
+    const recipientEvents = await recipientStream.waitForEvents(1);
+    const bystanderEvents = await bystanderStream.waitForEvents(1);
 
-    recipientSse.close();
-    bystanderSse.close();
+    recipientStream.close();
+    bystanderStream.close();
 
     // Recipient MUST get a message_sent notification.
     assert.strictEqual(
@@ -343,7 +343,7 @@ describe("message filtering", () => {
 
     const senderKey = senderReg.agent_key as string;
 
-    const agent2Sse = await AgentSseClient.connect(agent2.getSessionId());
+    const agent2Stream = await AgentStreamClient.connect(agent2.getSessionId());
 
     await sender.callTool("message", {
       action: "send",
@@ -352,8 +352,8 @@ describe("message filtering", () => {
       content: "broadcast!",
     });
 
-    const events = await agent2Sse.waitForEvents(1);
-    agent2Sse.close();
+    const events = await agent2Stream.waitForEvents(1);
+    agent2Stream.close();
 
     assert.strictEqual(
       events.length > 0,

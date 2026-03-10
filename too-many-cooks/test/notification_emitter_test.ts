@@ -78,7 +78,7 @@ describe("AgentEventHub", () => {
     const hub = createAgentEventHub();
     assert.strictEqual(hub.servers.size, 0);
     assert.strictEqual(hub.sessionAgentNames.size, 0);
-    assert.strictEqual(hub.activeSseSessions.size, 0);
+    assert.strictEqual(hub.activeStreamSessions.size, 0);
   });
 
   it("pushEvent does nothing with no servers", () => {
@@ -97,6 +97,126 @@ describe("AgentEventHub", () => {
     const hub = createAgentEventHub();
     // Should not throw
     hub.pushToAgent(EVENT_MESSAGE_SENT, { content: "hello" }, BROADCAST_RECIPIENT);
+  });
+
+  it("pushToAgent to agent WITHOUT active stream does not throw", () => {
+    const hub = createAgentEventHub();
+    const server = createServer();
+    const sessionId = "session-no-stream";
+    const agentName = "offline-agent";
+
+    // Register the agent's server and name mapping, but do NOT add to activeStreamSessions
+    hub.servers.set(sessionId, server);
+    hub.sessionAgentNames.set(sessionId, agentName);
+
+    assert.strictEqual(hub.servers.size, 1);
+    assert.strictEqual(hub.sessionAgentNames.size, 1);
+    assert.strictEqual(hub.activeStreamSessions.size, 0);
+
+    // Push to agent — MUST NOT throw even though agent has no active stream
+    hub.pushToAgent(EVENT_MESSAGE_SENT, { content: "hello offline" }, agentName);
+
+    // Session MUST still exist after failed notification (not cleaned up)
+    assert.strictEqual(hub.servers.has(sessionId), true);
+    assert.strictEqual(hub.sessionAgentNames.has(sessionId), true);
+    assert.strictEqual(hub.servers.size, 1);
+    assert.strictEqual(hub.sessionAgentNames.size, 1);
+  });
+
+  it("pushEvent broadcast to agents WITHOUT active stream does not throw", () => {
+    const hub = createAgentEventHub();
+    const server = createServer();
+    const sessionId = "session-broadcast-no-stream";
+
+    hub.servers.set(sessionId, server);
+    hub.sessionAgentNames.set(sessionId, "broadcast-target");
+
+    assert.strictEqual(hub.activeStreamSessions.size, 0);
+
+    // Broadcast — MUST NOT throw
+    hub.pushEvent(EVENT_AGENT_REGISTERED, { agent_name: "new-agent" });
+
+    // Session MUST still exist
+    assert.strictEqual(hub.servers.has(sessionId), true);
+    assert.strictEqual(hub.sessionAgentNames.has(sessionId), true);
+    assert.strictEqual(hub.servers.size, 1);
+    assert.strictEqual(hub.sessionAgentNames.size, 1);
+  });
+
+  it("pushToAgent broadcast to multiple agents WITHOUT active stream does not throw", () => {
+    const hub = createAgentEventHub();
+    const server1 = createServer();
+    const server2 = createServer();
+    const server3 = createServer();
+
+    hub.servers.set("sess-1", server1);
+    hub.servers.set("sess-2", server2);
+    hub.servers.set("sess-3", server3);
+    hub.sessionAgentNames.set("sess-1", "agent-a");
+    hub.sessionAgentNames.set("sess-2", "agent-b");
+    hub.sessionAgentNames.set("sess-3", "agent-c");
+
+    assert.strictEqual(hub.servers.size, 3);
+    assert.strictEqual(hub.sessionAgentNames.size, 3);
+    assert.strictEqual(hub.activeStreamSessions.size, 0);
+
+    // Broadcast to all — MUST NOT throw
+    hub.pushToAgent(EVENT_MESSAGE_SENT, { content: "broadcast" }, BROADCAST_RECIPIENT);
+
+    // ALL sessions MUST still exist
+    assert.strictEqual(hub.servers.size, 3);
+    assert.strictEqual(hub.sessionAgentNames.size, 3);
+    assert.strictEqual(hub.servers.has("sess-1"), true);
+    assert.strictEqual(hub.servers.has("sess-2"), true);
+    assert.strictEqual(hub.servers.has("sess-3"), true);
+    assert.strictEqual(hub.sessionAgentNames.has("sess-1"), true);
+    assert.strictEqual(hub.sessionAgentNames.has("sess-2"), true);
+    assert.strictEqual(hub.sessionAgentNames.has("sess-3"), true);
+  });
+
+  it("pushToAgent targeted to specific agent preserves other sessions", () => {
+    const hub = createAgentEventHub();
+    const server1 = createServer();
+    const server2 = createServer();
+
+    hub.servers.set("sess-target", server1);
+    hub.servers.set("sess-other", server2);
+    hub.sessionAgentNames.set("sess-target", "target-agent");
+    hub.sessionAgentNames.set("sess-other", "other-agent");
+
+    assert.strictEqual(hub.servers.size, 2);
+    assert.strictEqual(hub.sessionAgentNames.size, 2);
+
+    // Send only to target-agent — MUST NOT throw
+    hub.pushToAgent(EVENT_MESSAGE_SENT, { content: "direct msg" }, "target-agent");
+
+    // BOTH sessions MUST still exist
+    assert.strictEqual(hub.servers.size, 2);
+    assert.strictEqual(hub.sessionAgentNames.size, 2);
+    assert.strictEqual(hub.servers.has("sess-target"), true);
+    assert.strictEqual(hub.servers.has("sess-other"), true);
+    assert.strictEqual(hub.sessionAgentNames.get("sess-target"), "target-agent");
+    assert.strictEqual(hub.sessionAgentNames.get("sess-other"), "other-agent");
+  });
+
+  it("pushToAgent to nonexistent agent does not throw or corrupt state", () => {
+    const hub = createAgentEventHub();
+    const server = createServer();
+
+    hub.servers.set("sess-existing", server);
+    hub.sessionAgentNames.set("sess-existing", "existing-agent");
+
+    assert.strictEqual(hub.servers.size, 1);
+    assert.strictEqual(hub.sessionAgentNames.size, 1);
+
+    // Send to an agent that doesn't exist — MUST NOT throw
+    hub.pushToAgent(EVENT_MESSAGE_SENT, { content: "hello ghost" }, "nonexistent-agent");
+
+    // Existing session MUST be untouched
+    assert.strictEqual(hub.servers.size, 1);
+    assert.strictEqual(hub.sessionAgentNames.size, 1);
+    assert.strictEqual(hub.servers.has("sess-existing"), true);
+    assert.strictEqual(hub.sessionAgentNames.get("sess-existing"), "existing-agent");
   });
 });
 

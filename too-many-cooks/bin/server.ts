@@ -5,6 +5,7 @@
 /// - `/admin/*` — REST + Streamable HTTP for the VSCode extension
 
 import crypto from "node:crypto";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import express, { type Request, type Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -44,6 +45,21 @@ const main = async (): Promise<void> => {
   }
 };
 
+/** Kill any existing process listening on the given port. */
+const killExistingProcess = (port: number, log: Logger): void => {
+  try {
+    const output = execSync(`lsof -ti :${String(port)}`, { encoding: "utf8" }).trim();
+    if (output.length === 0) {return;}
+    const pids = output.split("\n").map((pid) => pid.trim()).filter((pid) => pid.length > 0);
+    for (const pid of pids) {
+      log.info("Killing existing process on port", { port, pid });
+      execSync(`kill ${pid}`);
+    }
+  } catch {
+    // lsof exits non-zero when no process found — that's fine
+  }
+};
+
 const startServer = async (log: Logger): Promise<void> => {
   log.info("Creating server...");
 
@@ -74,6 +90,7 @@ const startServer = async (log: Logger): Promise<void> => {
   app.delete("/mcp", asyncHandler(mcpGetDeleteHandler(transports, agentHub), log));
 
   const port = getServerPort();
+  killExistingProcess(port, log);
   app.listen(port, () => {
     log.info("Server listening", { port });
   });
@@ -113,7 +130,7 @@ const wireAgentTransportClose = (
       ctx.transports.delete(sid);
       ctx.agentHub.servers.delete(sid);
       ctx.agentHub.sessionAgentNames.delete(sid);
-      ctx.agentHub.activeSseSessions.delete(sid);
+      ctx.agentHub.activeStreamSessions.delete(sid);
     }
   };
 };
@@ -202,7 +219,7 @@ const mcpGetDeleteHandler = (
       res.status(404).send(SESSION_NOT_FOUND_JSON);
       return;
     }
-    agentHub.activeSseSessions.add(sessionId);
+    agentHub.activeStreamSessions.add(sessionId);
     await transport.handleRequest(req, res);
   };
 

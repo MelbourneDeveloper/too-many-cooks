@@ -53,8 +53,8 @@ export type AgentEventHub = {
   readonly servers: Map<string, McpServer>;
   /** sessionId → agentName, populated on register. */
   readonly sessionAgentNames: Map<string, string>;
-  /** Sessions with an active SSE GET stream. */
-  readonly activeSseSessions: Set<string>;
+  /** Sessions with an active Streamable HTTP GET stream. */
+  readonly activeStreamSessions: Set<string>;
   readonly pushEvent: EventPushFn;
   readonly pushToAgent: EventPushToAgentFn;
 };
@@ -103,29 +103,28 @@ const makeEventData = (
 
 /** Create send function that pushes to a single agent session. */
 const createSendFn = (
-  activeSseSessions: Set<string>,
-  servers: Map<string, McpServer>,
-  sessionAgentNames: Map<string, string>,
+  activeStreamSessions: Set<string>,
 ): ((sid: string, srv: McpServer, d: Record<string, unknown>) => Promise<void>) =>
   async (sessionId: string, server: McpServer, data: Record<string, unknown>): Promise<void> => {
-    if (!activeSseSessions.has(sessionId)) {return;}
+    if (!activeStreamSessions.has(sessionId)) {
+      // No active Streamable HTTP connection — skip silently.
+      // Do NOT delete the session — the agent may reconnect later.
+      return;
+    }
     console.error(`[TMC] [AGENT-PUSH] Sending to ${sessionId}`);
     const result = await sendNotification(server, data);
     if (result.ok) {
       console.error(`[TMC] [AGENT-PUSH] Sent OK to ${sessionId}`);
     } else {
-      console.error(`[TMC] [AGENT-PUSH] FAILED ${sessionId}: ${result.error}`);
-      servers.delete(sessionId);
-      sessionAgentNames.delete(sessionId);
-      activeSseSessions.delete(sessionId);
+      console.error(`[TMC] [AGENT-PUSH] Skipped ${sessionId} (send failed)`);
     }
   };
 
 export const createAgentEventHub = (): AgentEventHub => {
   const servers = new Map<string, McpServer>();
   const sessionAgentNames = new Map<string, string>();
-  const activeSseSessions = new Set<string>();
-  const send = createSendFn(activeSseSessions, servers, sessionAgentNames);
+  const activeStreamSessions = new Set<string>();
+  const send = createSendFn(activeStreamSessions);
 
   const pushEvent: EventPushFn = (event, payload) => {
     console.error(
@@ -158,7 +157,7 @@ export const createAgentEventHub = (): AgentEventHub => {
     }
   };
 
-  return { servers, sessionAgentNames, activeSseSessions, pushEvent, pushToAgent };
+  return { servers, sessionAgentNames, activeStreamSessions, pushEvent, pushToAgent };
 };
 
 // ---------------------------------------------------------------------------

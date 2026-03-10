@@ -1,6 +1,6 @@
-/// E2E streaming test - spawn MCP server, open SSE stream on
-/// /admin/events, trigger state changes via tool calls, ASSERT
-/// that events arrive over the stream.
+/// E2E streaming test - spawn MCP server, open Streamable HTTP
+/// stream on /admin/events, trigger state changes via tool calls,
+/// ASSERT that events arrive over the stream.
 ///
 /// This is the PROOF that Streamable HTTP push works end-to-end.
 
@@ -61,18 +61,18 @@ const resetServer = async (): Promise<void> => {
 
 
 // ============================================================
-// Admin SSE Client - opens GET /admin/events and reads events
+// Admin Stream Client - opens GET /admin/events and reads events
 // ============================================================
 
-class AdminSseClient {
+class AdminStreamClient {
   private readonly events: string[] = [];
   private consumed = 0;
   private controller: AbortController | undefined;
 
-  /// Connect: init admin session, then open GET SSE stream.
-  static async connect(): Promise<AdminSseClient> {
+  /// Connect: init admin session, then open GET stream.
+  static async connect(): Promise<AdminStreamClient> {
     const sessionId = await initAdminSession();
-    const client = new AdminSseClient();
+    const client = new AdminStreamClient();
     client.controller = new AbortController();
     // Start reading in the background
     void client.startReading(sessionId).catch((): void => { /* noop */ });
@@ -104,7 +104,7 @@ class AdminSseClient {
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Parse SSE lines
+        // Parse stream lines
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
         for (const line of lines) {
@@ -302,7 +302,7 @@ const adminPost = async (
 // Tests
 // ============================================================
 
-describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
+describe("Streaming E2E - Events Over Streamable HTTP", () => {
   let serverProcess: ChildProcess;
   let mcpClient: McpClient;
 
@@ -322,36 +322,36 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
     await mcpClient.initSession();
   });
 
-  it("admin SSE stream receives event when agent registers", async () => {
-    // 1. Open admin SSE stream
-    const sse = await AdminSseClient.connect();
+  it("admin stream receives event when agent registers", async () => {
+    // 1. Open admin stream
+    const stream = await AdminStreamClient.connect();
 
     // 2. Register agent via MCP tool call
     const regResult = await mcpClient.callTool("register", {
-      name: "sse-agent-1",
+      name: "stream-agent-1",
     });
     const regJson = JSON.parse(regResult) as Record<string, unknown>;
-    assert.strictEqual(regJson.agent_name, "sse-agent-1");
+    assert.strictEqual(regJson.agent_name, "stream-agent-1");
 
-    // 3. ASSERT: SSE event arrives
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    // 3. ASSERT: stream event arrives
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.ok(
       events.length >= 1,
-      "MUST receive at least 1 SSE event after register",
+      "MUST receive at least 1 stream event after register",
     );
     // Verify event contains notification data
     const firstEvent = events[0];
     assert.ok(firstEvent !== undefined);
     assert.ok(
       firstEvent.includes("notifications/message"),
-      "SSE event MUST be an MCP logging notification",
+      "Stream event MUST be an MCP logging notification",
     );
   });
 
-  it("admin SSE stream receives events for ALL tool operations", async () => {
-    const sse = await AdminSseClient.connect();
+  it("admin stream receives events for ALL tool operations", async () => {
+    const stream = await AdminStreamClient.connect();
 
     // Register 2 agents
     const reg1 = JSON.parse(
@@ -364,7 +364,7 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
     ) as Record<string, unknown>;
 
     // Wait for register events
-    const regEvents = await sse.waitForEvents(2);
+    const regEvents = await stream.waitForEvents(2);
     assert.ok(
       regEvents.length >= 2,
       "MUST get events for both registrations",
@@ -379,8 +379,8 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
     });
 
     // Wait for lock event
-    const lockEvents = await sse.waitForEvents(1);
-    assert.ok(lockEvents.length > 0, "MUST get SSE event for lock acquire");
+    const lockEvents = await stream.waitForEvents(1);
+    assert.ok(lockEvents.length > 0, "MUST get stream event for lock acquire");
 
     // Update plan
     await mcpClient.callTool("plan", {
@@ -391,20 +391,20 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
     });
 
     // Wait for plan event
-    const planEvents = await sse.waitForEvents(1);
-    assert.ok(planEvents.length > 0, "MUST get SSE event for plan update");
+    const planEvents = await stream.waitForEvents(1);
+    assert.ok(planEvents.length > 0, "MUST get stream event for plan update");
 
     // Send message
     await mcpClient.callTool("message", {
       action: "send",
       agent_key: key1,
       to_agent: "stream-all-2",
-      content: "SSE e2e test message",
+      content: "streaming e2e test message",
     });
 
     // Wait for message event
-    const msgEvents = await sse.waitForEvents(1);
-    assert.ok(msgEvents.length > 0, "MUST get SSE event for message send");
+    const msgEvents = await stream.waitForEvents(1);
+    assert.ok(msgEvents.length > 0, "MUST get stream event for message send");
 
     // Release lock
     await mcpClient.callTool("lock", {
@@ -414,27 +414,27 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
     });
 
     // Wait for release event
-    const releaseEvents = await sse.waitForEvents(1);
+    const releaseEvents = await stream.waitForEvents(1);
     assert.ok(
       releaseEvents.length > 0,
-      "MUST get SSE event for lock release",
+      "MUST get stream event for lock release",
     );
 
-    sse.close();
+    stream.close();
   });
 
-  it("SSE events contain correct payload structure", async () => {
-    const sse = await AdminSseClient.connect();
+  it("stream events contain correct payload structure", async () => {
+    const stream = await AdminStreamClient.connect();
 
     // Register agent
     await mcpClient.callTool("register", { name: "payload-check" });
 
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.ok(events.length > 0);
 
-    // Parse the SSE data as JSON-RPC notification
+    // Parse the stream data as JSON-RPC notification
     const eventJson = JSON.parse(events[0]!) as Record<string, unknown>;
     assert.strictEqual(eventJson.jsonrpc, "2.0");
     assert.strictEqual(eventJson.method, "notifications/message");
@@ -457,27 +457,27 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
     );
   });
 
-  it("multiple SSE clients each receive all events", async () => {
-    // Open 2 independent SSE streams
-    const sse1 = await AdminSseClient.connect();
-    const sse2 = await AdminSseClient.connect();
+  it("multiple stream clients each receive all events", async () => {
+    // Open 2 independent streams
+    const stream1 = await AdminStreamClient.connect();
+    const stream2 = await AdminStreamClient.connect();
 
     // Register agent
-    await mcpClient.callTool("register", { name: "multi-sse-test" });
+    await mcpClient.callTool("register", { name: "multi-stream-test" });
 
     // Both clients MUST receive the event
-    const events1 = await sse1.waitForEvents(1);
-    const events2 = await sse2.waitForEvents(1);
+    const events1 = await stream1.waitForEvents(1);
+    const events2 = await stream2.waitForEvents(1);
 
-    sse1.close();
-    sse2.close();
+    stream1.close();
+    stream2.close();
 
-    assert.ok(events1.length > 0, "SSE client 1 MUST receive event");
-    assert.ok(events2.length > 0, "SSE client 2 MUST receive event");
+    assert.ok(events1.length > 0, "Stream client 1 MUST receive event");
+    assert.ok(events2.length > 0, "Stream client 2 MUST receive event");
   });
 
-  it("SSE stream delivers events for concurrent tool calls", async () => {
-    const sse = await AdminSseClient.connect();
+  it("stream delivers events for concurrent tool calls", async () => {
+    const stream = await AdminStreamClient.connect();
 
     // Register 5 agents concurrently
     const agentCount = 5;
@@ -487,8 +487,8 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
     await Promise.all(regPromises);
 
     // MUST receive events for all 5 registrations
-    const events = await sse.waitForEvents(agentCount);
-    sse.close();
+    const events = await stream.waitForEvents(agentCount);
+    stream.close();
 
     assert.ok(
       events.length >= agentCount,
@@ -497,7 +497,7 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
     );
   });
 
-  it("admin REST push delivers events to SSE stream", async () => {
+  it("admin REST push delivers events to stream", async () => {
     // Register via MCP first so agents exist
     const reg = JSON.parse(
       await mcpClient.callTool("register", {
@@ -505,7 +505,7 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
       }),
     ) as Record<string, unknown>;
 
-    const sse = await AdminSseClient.connect();
+    const stream = await AdminStreamClient.connect();
 
     // Use admin REST to send message (bypasses MCP)
     await adminPost("/admin/send-message", {
@@ -514,18 +514,18 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
       content: "Admin push test",
     });
 
-    // SSE stream MUST receive the event
-    const events = await sse.waitForEvents(1);
-    sse.close();
+    // Stream MUST receive the event
+    const events = await stream.waitForEvents(1);
+    stream.close();
 
     assert.ok(
       events.length > 0,
-      "Admin REST push MUST deliver events to SSE",
+      "Admin REST push MUST deliver events to stream",
     );
   });
 
-  it("full round trip: register, lock, plan, message all stream as SSE events", async () => {
-    const sse = await AdminSseClient.connect();
+  it("full round trip: register, lock, plan, message all stream as events", async () => {
+    const stream = await AdminStreamClient.connect();
     const allEvents: string[] = [];
 
     // Register
@@ -535,7 +535,7 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
       }),
     ) as Record<string, unknown>;
     const key = reg.agent_key as string;
-    allEvents.push(...(await sse.waitForEvents(1)));
+    allEvents.push(...(await stream.waitForEvents(1)));
 
     // Lock
     await mcpClient.callTool("lock", {
@@ -544,7 +544,7 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
       agent_key: key,
       reason: "roundtrip",
     });
-    allEvents.push(...(await sse.waitForEvents(1)));
+    allEvents.push(...(await stream.waitForEvents(1)));
 
     // Plan
     await mcpClient.callTool("plan", {
@@ -553,7 +553,7 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
       goal: "Roundtrip goal",
       current_task: "Roundtrip task",
     });
-    allEvents.push(...(await sse.waitForEvents(1)));
+    allEvents.push(...(await stream.waitForEvents(1)));
 
     // Message
     await mcpClient.callTool("message", {
@@ -562,7 +562,7 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
       to_agent: "*",
       content: "Roundtrip broadcast",
     });
-    allEvents.push(...(await sse.waitForEvents(1)));
+    allEvents.push(...(await stream.waitForEvents(1)));
 
     // Release lock
     await mcpClient.callTool("lock", {
@@ -570,14 +570,14 @@ describe("Streaming E2E - SSE Events Over Streamable HTTP", () => {
       file_path: "/roundtrip/test.dart",
       agent_key: key,
     });
-    allEvents.push(...(await sse.waitForEvents(1)));
+    allEvents.push(...(await stream.waitForEvents(1)));
 
-    sse.close();
+    stream.close();
 
     // MUST have received events for all operations
     assert.ok(
       allEvents.length >= 5,
-      "MUST receive at least 5 SSE events for " +
+      "MUST receive at least 5 stream events for " +
         "register+lock+plan+message+release",
     );
 
