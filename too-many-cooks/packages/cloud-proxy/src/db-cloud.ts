@@ -210,80 +210,80 @@ export const createCloudDb = (
       ),
     sendMessage: async (fromAgent, fromKey, toAgent, content) =>
       parseApiResponse(
-        await call("sendMessage", {
+        await call(EP_SEND_MESSAGE, {
           fromAgent, fromKey, toAgent, content,
         }),
         extractString,
       ),
     getMessages: async (agentName, agentKey, options) =>
       parseApiResponse(
-        await call("getMessages", {
+        await call(EP_GET_MESSAGES, {
           agentName, agentKey, unreadOnly: options?.unreadOnly,
         }),
         mappedArray(messageFromJson),
       ),
     markRead: async (messageId, agentName, agentKey) =>
       parseApiResponse(
-        await call("markRead", { messageId, agentName, agentKey }),
+        await call(EP_MARK_READ, { messageId, agentName, agentKey }),
         extractVoid,
       ),
     updatePlan: async (agentName, agentKey, goal, currentTask) =>
       parseApiResponse(
-        await call("updatePlan", {
+        await call(EP_UPDATE_PLAN, {
           agentName, agentKey, goal, currentTask,
         }),
         extractVoid,
       ),
     getPlan: async (agentName) =>
       parseApiResponse(
-        await call("getPlan", { agentName }),
+        await call(EP_GET_PLAN, { agentName }),
         mappedNullable(agentPlanFromJson),
       ),
     listPlans: async () =>
       parseApiResponse(
-        await call("listPlans", {}),
+        await call(EP_LIST_PLANS, {}),
         mappedArray(agentPlanFromJson),
       ),
     listAllMessages: async () =>
       parseApiResponse(
-        await call("listAllMessages", {}),
+        await call(EP_LIST_ALL_MESSAGES, {}),
         mappedArray(messageFromJson),
       ),
     activate: async (agentName) =>
       parseApiResponse(
-        await call("activate", { agentName }),
+        await call(EP_ACTIVATE, { agentName }),
         extractVoid,
       ),
     deactivate: async (agentName) =>
       parseApiResponse(
-        await call("deactivate", { agentName }),
+        await call(EP_DEACTIVATE, { agentName }),
         extractVoid,
       ),
     deactivateAll: async () =>
-      parseApiResponse(await call("deactivateAll", {}), extractVoid),
+      parseApiResponse(await call(EP_DEACTIVATE_ALL, {}), extractVoid),
     close: async () =>
-      parseApiResponse(await call("close", {}), extractVoid),
+      parseApiResponse(await call(EP_CLOSE, {}), extractVoid),
     adminDeleteLock: async (filePath) =>
       parseApiResponse(
-        await call("adminDeleteLock", { filePath }),
+        await call(EP_ADMIN_DELETE_LOCK, { filePath }),
         extractVoid,
       ),
     adminDeleteAgent: async (agentName) =>
       parseApiResponse(
-        await call("adminDeleteAgent", { agentName }),
+        await call(EP_ADMIN_DELETE_AGENT, { agentName }),
         extractVoid,
       ),
     adminResetKey: async (agentName) =>
       parseApiResponse(
-        await call("adminResetKey", { agentName }),
+        await call(EP_ADMIN_RESET_KEY, { agentName }),
         mapped(agentRegistrationFromJson),
       ),
     adminSendMessage: async (fromAgent, toAgent, content) =>
       parseApiResponse(
-        await call("adminSendMessage", { fromAgent, toAgent, content }),
+        await call(EP_ADMIN_SEND_MESSAGE, { fromAgent, toAgent, content }),
         extractString,
       ),
     adminReset: async () =>
-      parseApiResponse(await call("adminReset", {}), extractVoid),
+      parseApiResponse(await call(EP_ADMIN_RESET, {}), extractVoid),
   };
 };
