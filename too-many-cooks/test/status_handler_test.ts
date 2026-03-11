@@ -60,19 +60,19 @@ describe("status handler", () => {
   it("returns populated status after registrations and actions", async () => {
     if (!db) { throw new Error("expected db"); }
     // Register agents
-    const reg1 = db.register("status-agent-1");
+    const reg1 = await db.register("status-agent-1");
     if (!reg1.ok) { throw new Error("expected ok"); }
-    const reg2 = db.register("status-agent-2");
+    const reg2 = await db.register("status-agent-2");
     if (!reg2.ok) { throw new Error("expected ok"); }
 
     // Create some locks
-    db.acquireLock("/status/file.ts", reg1.value.agentName, reg1.value.agentKey, "testing", 60000);
+    await db.acquireLock("/status/file.ts", reg1.value.agentName, reg1.value.agentKey, "testing", 60000);
 
     // Create plans
-    db.updatePlan(reg1.value.agentName, reg1.value.agentKey, "Goal 1", "Task 1");
+    await db.updatePlan(reg1.value.agentName, reg1.value.agentKey, "Goal 1", "Task 1");
 
     // Send messages
-    db.sendMessage(reg1.value.agentName, reg1.value.agentKey, reg2.value.agentName, "hello");
+    await db.sendMessage(reg1.value.agentName, reg1.value.agentKey, reg2.value.agentName, "hello");
 
     const handler = createStatusHandler(db, createTestLogger());
     const result = await handler({}, {});

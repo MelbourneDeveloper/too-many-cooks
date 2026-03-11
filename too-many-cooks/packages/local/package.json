@@ -1,0 +1,29 @@
+{
+  "name": "@too-many-cooks/local",
+  "version": "0.5.0",
+  "description": "SQLite-backed local MCP server for Too Many Cooks multi-agent coordination",
+  "type": "module",
+  "main": "build/src/index.js",
+  "types": "build/src/index.d.ts",
+  "bin": {
+    "too-many-cooks": "build/bin/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/bin/server.js",
+    "test": "node --import tsx --test --test-concurrency=1 test/*.ts"
+  },
+  "dependencies": {
+    "@too-many-cooks/core": "*",
+    "better-sqlite3": "^12.5.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}

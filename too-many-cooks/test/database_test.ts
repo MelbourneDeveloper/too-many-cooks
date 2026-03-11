@@ -38,7 +38,7 @@ const deleteDirIfExists = (path: string): void => {
 };
 
 describe("database", () => {
-  it("createDb succeeds with valid path", () => {
+  it("createDb succeeds with valid path", async () => {
     const testDbPath = ".test_create_db.db" as const;
     deleteIfExists(testDbPath);
 
@@ -47,12 +47,12 @@ describe("database", () => {
     assert.strictEqual(result.ok, true);
 
     if (result.ok) {
-      result.value.close();
+      await result.value.close();
     }
     deleteIfExists(testDbPath);
   });
 
-  it("createDb creates parent directory if needed", () => {
+  it("createDb creates parent directory if needed", async () => {
     const testDir = ".test_nested_dir" as const;
     const testDbPath = `${testDir}/subdir/data.db`;
     deleteDirIfExists(testDir);
@@ -62,12 +62,12 @@ describe("database", () => {
     assert.strictEqual(result.ok, true);
 
     if (result.ok) {
-      result.value.close();
+      await result.value.close();
     }
     deleteDirIfExists(testDir);
   });
 
-  it("close succeeds", () => {
+  it("close succeeds", async () => {
     const testDbPath = ".test_close.db" as const;
     deleteIfExists(testDbPath);
 
@@ -77,7 +77,7 @@ describe("database", () => {
     if (!createResult.ok) {return;}
     const db = createResult.value;
 
-    const closeResult = db.close();
+    const closeResult = await db.close();
     assert.strictEqual(closeResult.ok, true);
 
     deleteIfExists(testDbPath);

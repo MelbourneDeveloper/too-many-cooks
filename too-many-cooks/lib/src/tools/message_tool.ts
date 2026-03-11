@@ -62,7 +62,7 @@ export const MESSAGE_TOOL_CONFIG = {
 // Action dispatch
 // ---------------------------------------------------------------------------
 
-const dispatchAction = (
+const dispatchAction = async (
   action: string,
   db: TooManyCooksDb,
   emitter: NotificationEmitter,
@@ -70,10 +70,10 @@ const dispatchAction = (
   agentName: string,
   agentKey: string,
   args: Record<string, unknown>,
-): CallToolResult => {
+): Promise<CallToolResult> => {
   switch (action) {
     case "send":
-      return handleSend(
+      return await handleSend(
         db,
         emitter,
         log,
@@ -83,7 +83,7 @@ const dispatchAction = (
         typeof args.content === "string" ? args.content : null,
       );
     case "get":
-      return handleGet(
+      return await handleGet(
         db,
         agentName,
         agentKey,
@@ -92,7 +92,7 @@ const dispatchAction = (
           : true,
       );
     case "mark_read":
-      return handleMarkRead(
+      return await handleMarkRead(
         db,
         agentName,
         agentKey,
@@ -120,23 +120,23 @@ export const createMessageHandler = (
   async (args: Record<string, unknown>): Promise<CallToolResult> => {
     const actionArg = args.action;
     if (typeof actionArg !== "string") {
-      return await Promise.resolve(errorContent("missing_parameter: action is required"));
+      return errorContent("missing_parameter: action is required");
     }
     const action = actionArg;
 
-    const identity = resolveIdentity(db, args, getSession);
-    if (identity.isError) {return await Promise.resolve(identity.result);}
+    const identity = await resolveIdentity(db, args, getSession);
+    if (identity.isError) {return identity.result;}
     const { agentName, agentKey } = identity;
     const log = logger.child({ tool: "message", action });
 
-    return await Promise.resolve(dispatchAction(action, db, emitter, log, agentName, agentKey, args));
+    return await dispatchAction(action, db, emitter, log, agentName, agentKey, args);
   };
 
 // ---------------------------------------------------------------------------
 // Send
 // ---------------------------------------------------------------------------
 
-const handleSend = (
+const handleSend = async (
   db: TooManyCooksDb,
   emitter: NotificationEmitter,
   log: Logger,
@@ -144,11 +144,11 @@ const handleSend = (
   agentKey: string,
   toAgent: string | null,
   content: string | null,
-): CallToolResult => {
+): Promise<CallToolResult> => {
   if (toAgent === null || content === null) {
     return errorContent("send requires to_agent and content");
   }
-  const result = db.sendMessage(agentName, agentKey, toAgent, content);
+  const result = await db.sendMessage(agentName, agentKey, toAgent, content);
   if (!result.ok) {return makeErrorResult(result.error);}
   emitter.emitToAgent(
     EVENT_MESSAGE_SENT,
@@ -175,13 +175,13 @@ const handleSend = (
 // Get
 // ---------------------------------------------------------------------------
 
-const handleGet = (
+const handleGet = async (
   db: TooManyCooksDb,
   agentName: string,
   agentKey: string,
   unreadOnly: boolean,
-): CallToolResult => {
-  const result = db.getMessages(agentName, agentKey, { unreadOnly });
+): Promise<CallToolResult> => {
+  const result = await db.getMessages(agentName, agentKey, { unreadOnly });
   if (!result.ok) {return makeErrorResult(result.error);}
   return {
     content: [
@@ -197,16 +197,16 @@ const handleGet = (
 // Mark read
 // ---------------------------------------------------------------------------
 
-const handleMarkRead = (
+const handleMarkRead = async (
   db: TooManyCooksDb,
   agentName: string,
   agentKey: string,
   messageId: string | null,
-): CallToolResult => {
+): Promise<CallToolResult> => {
   if (messageId === null) {
     return errorContent("mark_read requires message_id");
   }
-  const result = db.markRead(messageId, agentName, agentKey);
+  const result = await db.markRead(messageId, agentName, agentKey);
   if (!result.ok) {return makeErrorResult(result.error);}
   return {
     content: [textContent(JSON.stringify({ marked: true }))],

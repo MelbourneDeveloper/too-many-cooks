@@ -38,28 +38,28 @@ export const createStatusHandler = (
   async (): Promise<CallToolResult> => {
     const log = logger.child({ tool: "status" });
 
-    const agentsResult = db.listAgents();
-    if (!agentsResult.ok) {return await Promise.resolve(makeErrorResult(agentsResult.error));}
+    const agentsResult = await db.listAgents();
+    if (!agentsResult.ok) {return makeErrorResult(agentsResult.error);}
     const agents = agentsResult.value.map(agentIdentityToJson);
 
-    const locksResult = db.listLocks();
-    if (!locksResult.ok) {return await Promise.resolve(makeErrorResult(locksResult.error));}
+    const locksResult = await db.listLocks();
+    if (!locksResult.ok) {return makeErrorResult(locksResult.error);}
     const locks = locksResult.value.map(fileLockToJson);
 
-    const plansResult = db.listPlans();
-    if (!plansResult.ok) {return await Promise.resolve(makeErrorResult(plansResult.error));}
+    const plansResult = await db.listPlans();
+    if (!plansResult.ok) {return makeErrorResult(plansResult.error);}
     const plans = plansResult.value.map(agentPlanToJson);
 
-    const messagesResult = db.listAllMessages();
-    if (!messagesResult.ok) {return await Promise.resolve(makeErrorResult(messagesResult.error));}
+    const messagesResult = await db.listAllMessages();
+    if (!messagesResult.ok) {return makeErrorResult(messagesResult.error);}
     const messages = messagesResult.value.map(messageToJson);
 
     log.debug("Status queried");
 
-    return await Promise.resolve({
+    return {
       content: [
         textContent(JSON.stringify({ agents, locks, plans, messages })),
       ],
       isError: false,
-    });
+    };
   };

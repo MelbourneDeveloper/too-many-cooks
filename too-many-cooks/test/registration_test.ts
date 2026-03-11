@@ -34,15 +34,15 @@ describe("registration", () => {
     db = result.value;
   });
 
-  afterEach(() => {
-    db?.close();
+  afterEach(async () => {
+    await db?.close();
     deleteIfExists(TEST_DB_PATH);
   });
 
-  it("register creates agent with key", () => {
+  it("register creates agent with key", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    const result = db.register("test-agent");
+    const result = await db.register("test-agent");
     assert.strictEqual(result.ok, true);
     if (!result.ok) {throw new Error("expected ok");}
     const reg = result.value;
@@ -50,50 +50,50 @@ describe("registration", () => {
     assert.strictEqual(reg.agentKey.length, 64);
   });
 
-  it("register fails for duplicate name", () => {
+  it("register fails for duplicate name", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    db.register("duplicate-agent");
-    const result = db.register("duplicate-agent");
+    await db.register("duplicate-agent");
+    const result = await db.register("duplicate-agent");
     assert.strictEqual(result.ok, false);
     if (result.ok) {throw new Error("expected error");}
     assert.strictEqual(result.error.code, ERR_VALIDATION);
     assert.ok(result.error.message.includes("already registered"));
   });
 
-  it("register fails for empty name", () => {
+  it("register fails for empty name", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    const result = db.register("");
+    const result = await db.register("");
     assert.strictEqual(result.ok, false);
     if (result.ok) {throw new Error("expected error");}
     assert.strictEqual(result.error.code, ERR_VALIDATION);
     assert.ok(result.error.message.includes("1-50"));
   });
 
-  it("register fails for name over 50 chars", () => {
+  it("register fails for name over 50 chars", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    const result = db.register("a".repeat(51));
+    const result = await db.register("a".repeat(51));
     assert.strictEqual(result.ok, false);
     if (result.ok) {throw new Error("expected error");}
     assert.strictEqual(result.error.code, ERR_VALIDATION);
     assert.ok(result.error.message.includes("1-50"));
   });
 
-  it("register accepts name of exactly 50 chars", () => {
+  it("register accepts name of exactly 50 chars", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    const result = db.register("a".repeat(50));
+    const result = await db.register("a".repeat(50));
     assert.strictEqual(result.ok, true);
   });
 
-  it("listAgents returns registered agents", () => {
+  it("listAgents returns registered agents", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    db.register("agent1");
-    db.register("agent2");
-    const result = db.listAgents();
+    await db.register("agent1");
+    await db.register("agent2");
+    const result = await db.listAgents();
     assert.strictEqual(result.ok, true);
     if (!result.ok) {throw new Error("expected ok");}
     const agents = result.value;

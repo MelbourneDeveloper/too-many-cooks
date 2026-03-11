@@ -44,25 +44,25 @@ describe('admin_reset_preserves_identity_test', () => {
     }
   });
 
-  afterEach(() => {
-    db?.close();
+  afterEach(async () => {
+    await db?.close();
     deleteIfExists(TEST_DB_PATH);
   });
 
-  it('agent can reconnect with saved key after adminReset', () => {
+  it('agent can reconnect with saved key after adminReset', async () => {
     // 1. Register an agent and save the key
-    const regResult = db!.register('persistent-agent');
+    const regResult = await db!.register('persistent-agent');
     assert.strictEqual(regResult.ok, true);
     if (!regResult.ok) {return;}
     const reg = regResult.value;
     assert.strictEqual(reg.agentKey.length, 64);
 
     // 2. Call adminReset (should clear transient data)
-    const resetResult = db!.adminReset();
+    const resetResult = await db!.adminReset();
     assert.strictEqual(resetResult.ok, true);
 
     // 3. Try to reconnect with the saved key
-    const lookupResult = db!.lookupByKey(reg.agentKey);
+    const lookupResult = await db!.lookupByKey(reg.agentKey);
 
     // 4. ASSERT: reconnection MUST succeed
     assert.strictEqual(lookupResult.ok, true);
@@ -71,33 +71,33 @@ describe('admin_reset_preserves_identity_test', () => {
     }
   });
 
-  it('adminReset clears locks and plans', () => {
+  it('adminReset clears locks and plans', async () => {
     // Register and create transient data
-    const regResult = db!.register('transient-agent');
+    const regResult = await db!.register('transient-agent');
     assert.strictEqual(regResult.ok, true);
     if (!regResult.ok) {return;}
     const reg = regResult.value;
-    db!.activate('transient-agent');
-    db!.acquireLock(
+    await db!.activate('transient-agent');
+    await db!.acquireLock(
       'test.dart',
       reg.agentName,
       reg.agentKey,
       'testing',
       600000,
     );
-    db!.updatePlan(reg.agentName, reg.agentKey, 'test goal', 'test task');
+    await db!.updatePlan(reg.agentName, reg.agentKey, 'test goal', 'test task');
 
     // Reset
-    db!.adminReset();
+    await db!.adminReset();
 
     // Locks and plans should be empty
-    const locksResult = db!.listLocks();
+    const locksResult = await db!.listLocks();
     assert.strictEqual(locksResult.ok, true);
     if (locksResult.ok) {
       assert.strictEqual(locksResult.value.length, 0);
     }
 
-    const plansResult = db!.listPlans();
+    const plansResult = await db!.listPlans();
     assert.strictEqual(plansResult.ok, true);
     if (plansResult.ok) {
       assert.strictEqual(plansResult.value.length, 0);

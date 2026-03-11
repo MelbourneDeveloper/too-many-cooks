@@ -62,7 +62,7 @@ export const createLockHandler = (
   async (args: Record<string, unknown>): Promise<CallToolResult> => {
     const actionArg = args.action;
     if (typeof actionArg !== "string") {
-      return await Promise.resolve(errorContent("missing_parameter: action is required"));
+      return errorContent("missing_parameter: action is required");
     }
     const action = actionArg;
     const filePath = typeof args.file_path === "string" ? args.file_path : null;
@@ -73,16 +73,16 @@ export const createLockHandler = (
       ...(filePath === null ? {} : { filePath }),
     });
 
-    if (action === "query") {return await Promise.resolve(handleQuery(db, filePath));}
-    if (action === "list") {return await Promise.resolve(handleList(db));}
+    if (action === "query") {return await handleQuery(db, filePath);}
+    if (action === "list") {return await handleList(db);}
 
-    const identity = resolveIdentity(db, args, getSession);
-    if (identity.isError) {return await Promise.resolve(identity.result);}
+    const identity = await resolveIdentity(db, args, getSession);
+    if (identity.isError) {return identity.result;}
     const { agentName, agentKey } = identity;
 
-    return await Promise.resolve(dispatchAction({
+    return await dispatchAction({
       action, db, emitter, log, filePath, agentName, agentKey, reason, lockTimeoutMs: config.lockTimeoutMs,
-    }));
+    });
   };
 
 // ---------------------------------------------------------------------------
@@ -101,17 +101,17 @@ type DispatchParams = {
   readonly lockTimeoutMs: number;
 };
 
-const dispatchAction = (params: DispatchParams): CallToolResult => {
+const dispatchAction = async (params: DispatchParams): Promise<CallToolResult> => {
   const { action, db, emitter, log, filePath, agentName, agentKey, reason, lockTimeoutMs } = params;
   switch (action) {
     case "acquire":
-      return handleAcquire({ db, emitter, log, filePath, agentName, agentKey, reason, timeoutMs: lockTimeoutMs });
+      return await handleAcquire({ db, emitter, log, filePath, agentName, agentKey, reason, timeoutMs: lockTimeoutMs });
     case "release":
-      return handleRelease(db, emitter, log, filePath, agentName, agentKey);
+      return await handleRelease(db, emitter, log, filePath, agentName, agentKey);
     case "force_release":
-      return handleForceRelease(db, emitter, log, filePath, agentName, agentKey);
+      return await handleForceRelease(db, emitter, log, filePath, agentName, agentKey);
     case "renew":
-      return handleRenew(db, emitter, log, filePath, agentName, agentKey, lockTimeoutMs);
+      return await handleRenew(db, emitter, log, filePath, agentName, agentKey, lockTimeoutMs);
     default:
       return { content: [textContent(JSON.stringify({ error: `Unknown action: ${action}` }))], isError: true };
   }
@@ -132,12 +132,12 @@ type AcquireParams = {
   readonly timeoutMs: number;
 };
 
-const handleAcquire = (params: AcquireParams): CallToolResult => {
+const handleAcquire = async (params: AcquireParams): Promise<CallToolResult> => {
   const { db, emitter, log, filePath, agentName, agentKey, reason, timeoutMs } = params;
   if (filePath === null) {
     return { content: [textContent(JSON.stringify({ error: "acquire requires file_path" }))], isError: true };
   }
-  const result = db.acquireLock(filePath, agentName, agentKey, reason, timeoutMs);
+  const result = await db.acquireLock(filePath, agentName, agentKey, reason, timeoutMs);
   if (!result.ok) {return makeErrorResult(result.error);}
   if (result.value.acquired) {
     emitter.emit(EVENT_LOCK_ACQUIRED, {
@@ -156,18 +156,18 @@ const handleAcquire = (params: AcquireParams): CallToolResult => {
 // Release
 // ---------------------------------------------------------------------------
 
-const handleRelease = (
+const handleRelease = async (
   db: TooManyCooksDb,
   emitter: NotificationEmitter,
   log: Logger,
   filePath: string | null,
   agentName: string,
   agentKey: string,
-): CallToolResult => {
+): Promise<CallToolResult> => {
   if (filePath === null) {
     return { content: [textContent(JSON.stringify({ error: "release requires file_path" }))], isError: true };
   }
-  const result = db.releaseLock(filePath, agentName, agentKey);
+  const result = await db.releaseLock(filePath, agentName, agentKey);
   if (!result.ok) {return makeErrorResult(result.error);}
   emitter.emit(EVENT_LOCK_RELEASED, { file_path: filePath, agent_name: agentName });
   log.info(`Lock released on ${filePath} by ${agentName}`);
@@ -178,18 +178,18 @@ const handleRelease = (
 // Force release
 // ---------------------------------------------------------------------------
 
-const handleForceRelease = (
+const handleForceRelease = async (
   db: TooManyCooksDb,
   emitter: NotificationEmitter,
   log: Logger,
   filePath: string | null,
   agentName: string,
   agentKey: string,
-): CallToolResult => {
+): Promise<CallToolResult> => {
   if (filePath === null) {
     return { content: [textContent(JSON.stringify({ error: "force_release requires file_path" }))], isError: true };
   }
-  const result = db.forceReleaseLock(filePath, agentName, agentKey);
+  const result = await db.forceReleaseLock(filePath, agentName, agentKey);
   if (!result.ok) {
     return { content: [textContent(JSON.stringify({ error: result.error.message }))], isError: true };
   }
@@ -202,7 +202,7 @@ const handleForceRelease = (
 // Renew
 // ---------------------------------------------------------------------------
 
-const handleRenew = (
+const handleRenew = async (
   db: TooManyCooksDb,
   emitter: NotificationEmitter,
   log: Logger,
@@ -210,11 +210,11 @@ const handleRenew = (
   agentName: string,
   agentKey: string,
   timeoutMs: number,
-): CallToolResult => {
+): Promise<CallToolResult> => {
   if (filePath === null) {
     return { content: [textContent(JSON.stringify({ error: "renew requires file_path" }))], isError: true };
   }
-  const result = db.renewLock(filePath, agentName, agentKey, timeoutMs);
+  const result = await db.renewLock(filePath, agentName, agentKey, timeoutMs);
   if (!result.ok) {return makeErrorResult(result.error);}
   const newExpiresAt = Date.now() + timeoutMs;
   emitter.emit(EVENT_LOCK_RENEWED, {
@@ -230,14 +230,14 @@ const handleRenew = (
 // Query
 // ---------------------------------------------------------------------------
 
-const handleQuery = (
+const handleQuery = async (
   db: TooManyCooksDb,
   filePath: string | null,
-): CallToolResult => {
+): Promise<CallToolResult> => {
   if (filePath === null) {
     return { content: [textContent(JSON.stringify({ error: "query requires file_path" }))], isError: true };
   }
-  const result = db.queryLock(filePath);
+  const result = await db.queryLock(filePath);
   if (!result.ok) {return makeErrorResult(result.error);}
   if (result.value !== null) {
     return { content: [textContent(JSON.stringify({ locked: true, lock: fileLockToJson(result.value) }))], isError: false };
@@ -249,8 +249,8 @@ const handleQuery = (
 // List
 // ---------------------------------------------------------------------------
 
-const handleList = (db: TooManyCooksDb): CallToolResult => {
-  const result = db.listLocks();
+const handleList = async (db: TooManyCooksDb): Promise<CallToolResult> => {
+  const result = await db.listLocks();
   if (!result.ok) {return makeErrorResult(result.error);}
   return {
     content: [textContent(JSON.stringify({ locks: result.value.map(fileLockToJson) }))],

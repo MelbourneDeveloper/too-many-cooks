@@ -44,7 +44,7 @@ describe("message handler", () => {
   let agent2Name = "";
   let agent2Key = "";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
@@ -52,12 +52,12 @@ describe("message handler", () => {
     if (!result.ok) { throw new Error("expected ok"); }
     db = result.value;
 
-    const reg1 = db.register("msg-agent-1");
+    const reg1 = await db.register("msg-agent-1");
     if (!reg1.ok) { throw new Error("expected ok"); }
     agentName = reg1.value.agentName;
     agentKey = reg1.value.agentKey;
 
-    const reg2 = db.register("msg-agent-2");
+    const reg2 = await db.register("msg-agent-2");
     if (!reg2.ok) { throw new Error("expected ok"); }
     agent2Name = reg2.value.agentName;
     agent2Key = reg2.value.agentKey;

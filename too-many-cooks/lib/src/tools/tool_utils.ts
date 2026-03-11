@@ -27,15 +27,15 @@ type IdentityErr = {
 
 export type IdentityResult = IdentityOk | IdentityErr;
 
-export const resolveIdentity = (
+export const resolveIdentity = async (
   db: TooManyCooksDb,
   args: Record<string, unknown>,
   getSession: SessionGetter,
-): IdentityResult => {
+): Promise<IdentityResult> => {
   const keyOverride =
     typeof args.agent_key === "string" ? args.agent_key : null;
   if (keyOverride !== null) {
-    const lookupResult = db.lookupByKey(keyOverride);
+    const lookupResult = await db.lookupByKey(keyOverride);
     if (!lookupResult.ok) {
       return { isError: true, result: makeErrorResult(lookupResult.error) };
     }
