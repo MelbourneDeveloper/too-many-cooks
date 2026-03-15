@@ -7,7 +7,6 @@ export * from "./logger.js";
 export * from "./types.gen.js";
 export * from "./types.js";
 export * from "./config.js";
-export * from "./schema.js";
 export * from "./mcp-types.js";
 export * from "./notifications.js";
 export type * from "./db-interface.js";

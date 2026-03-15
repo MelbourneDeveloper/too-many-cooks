@@ -6,11 +6,12 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
+import { applyMigrations } from "./migrate.js";
+
 import {
   type AgentIdentity,
   type AgentPlan,
   type AgentRegistration,
-  CREATE_TABLES_SQL,
   type DbError,
   ERR_DATABASE,
   ERR_LOCK_HELD,
@@ -124,7 +125,7 @@ const initSchema = (
 ): Result<TooManyCooksDb, string> => {
   log.debug("Initializing database schema");
   try {
-    db.exec(CREATE_TABLES_SQL);
+    applyMigrations(db);
     log.debug("Schema initialized successfully");
     return success(createDbOps(db, config, log));
   } catch (e: unknown) {

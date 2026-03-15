@@ -13,7 +13,6 @@ import {
   ERR_LOCK_EXPIRED,
   ERR_VALIDATION,
   ERR_DATABASE,
-  SCHEMA_VERSION,
 } from "@too-many-cooks/core";
 import { createDb } from "../src/db-sqlite.js";
 
@@ -81,10 +80,6 @@ describe("database", () => {
     assert.strictEqual(closeResult.ok, true);
 
     deleteIfExists(testDbPath);
-  });
-
-  it("schema version is set correctly", () => {
-    assert.strictEqual(SCHEMA_VERSION, 1);
   });
 
   it("error codes are defined", () => {
