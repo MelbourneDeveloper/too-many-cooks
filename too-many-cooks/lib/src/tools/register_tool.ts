@@ -57,14 +57,14 @@ export const REGISTER_TOOL_CONFIG = {
 // Reconnect handler
 // ---------------------------------------------------------------------------
 
-const handleReconnect = (
+const handleReconnect = async (
   db: TooManyCooksDb,
   emitter: NotificationEmitter,
   log: Logger,
   setSession: SessionSetter,
   keyArg: string,
-): CallToolResult => {
-  const lookupResult = db.lookupByKey(keyArg);
+): Promise<CallToolResult> => {
+  const lookupResult = await db.lookupByKey(keyArg);
   if (!lookupResult.ok) {
     log.warn(`Reconnect failed: ${lookupResult.error.code}`);
     return {
@@ -75,7 +75,7 @@ const handleReconnect = (
     };
   }
   setSession(lookupResult.value, keyArg);
-  db.activate(lookupResult.value);
+  await db.activate(lookupResult.value);
   emitter.emit(EVENT_AGENT_ACTIVATED, {
     agent_name: lookupResult.value,
   });
@@ -97,17 +97,17 @@ const handleReconnect = (
 // First registration handler
 // ---------------------------------------------------------------------------
 
-const handleFirstRegistration = (
+const handleFirstRegistration = async (
   db: TooManyCooksDb,
   emitter: NotificationEmitter,
   log: Logger,
   setSession: SessionSetter,
   nameArg: string,
-): CallToolResult => {
-  let reg = db.register(nameArg);
+): Promise<CallToolResult> => {
+  let reg = await db.register(nameArg);
 
   if (!reg.ok && reg.error.message.includes("already registered")) {
-    const resetResult = db.adminResetKey(nameArg);
+    const resetResult = await db.adminResetKey(nameArg);
     if (!resetResult.ok) {
       log.warn(`Re-registration failed: ${resetResult.error.code}`);
       return {
@@ -129,7 +129,7 @@ const handleFirstRegistration = (
   }
 
   setSession(reg.value.agentName, reg.value.agentKey);
-  db.activate(reg.value.agentName);
+  await db.activate(reg.value.agentName);
   emitter.emit(EVENT_AGENT_REGISTERED, {
     agent_name: reg.value.agentName,
     registered_at: Date.now(),
@@ -186,13 +186,13 @@ export const createRegisterHandler = (
     const parsed = parseRegisterArgs(args);
 
     if (parsed.mode === "error") {
-      return await Promise.resolve(parsed.result);
+      return parsed.result;
     }
     if (parsed.mode === "reconnect") {
       const log = logger.child({ tool: "register", mode: "reconnect" });
-      return await Promise.resolve(handleReconnect(db, emitter, log, setSession, parsed.keyArg));
+      return await handleReconnect(db, emitter, log, setSession, parsed.keyArg);
     }
 
     const log = logger.child({ tool: "register", agentName: parsed.nameArg });
-    return await Promise.resolve(handleFirstRegistration(db, emitter, log, setSession, parsed.nameArg));
+    return await handleFirstRegistration(db, emitter, log, setSession, parsed.nameArg);
   };

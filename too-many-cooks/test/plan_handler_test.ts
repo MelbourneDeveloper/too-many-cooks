@@ -42,7 +42,7 @@ describe("plan handler", () => {
   let agentName = "";
   let agentKey = "";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
@@ -50,7 +50,7 @@ describe("plan handler", () => {
     if (!result.ok) { throw new Error("expected ok"); }
     db = result.value;
 
-    const regResult = db.register("plan-agent");
+    const regResult = await db.register("plan-agent");
     if (!regResult.ok) { throw new Error("expected ok"); }
     agentName = regResult.value.agentName;
     agentKey = regResult.value.agentKey;
@@ -100,7 +100,7 @@ describe("plan handler", () => {
     await handler({ action: "update", goal: "Goal A", current_task: "Task A" }, {});
 
     // Register second agent and set plan
-    const reg2 = db.register("plan-agent-2");
+    const reg2 = await db.register("plan-agent-2");
     if (!reg2.ok) { throw new Error("expected ok"); }
     const getSession2 = (): SessionIdentity => ({
       agentName: reg2.value.agentName,

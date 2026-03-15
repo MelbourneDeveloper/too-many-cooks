@@ -72,7 +72,7 @@ describe("register handler", () => {
 
   it("reconnects with existing key", async () => {
     if (!db) { throw new Error("expected db"); }
-    const regResult = db.register("reconnect-agent");
+    const regResult = await db.register("reconnect-agent");
     if (!regResult.ok) { throw new Error("expected ok"); }
     const { agentKey } = regResult.value;
 
@@ -119,7 +119,7 @@ describe("register handler", () => {
 
   it("re-registers an already registered name", async () => {
     if (!db) { throw new Error("expected db"); }
-    const regResult = db.register("duplicate-agent");
+    const regResult = await db.register("duplicate-agent");
     if (!regResult.ok) { throw new Error("expected ok"); }
 
     let session: SessionIdentity | null = null;

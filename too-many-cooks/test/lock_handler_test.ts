@@ -15,7 +15,6 @@ import type { SessionIdentity } from "../lib/src/types.js";
 import { createLockHandler } from "../lib/src/tools/lock_tool.js";
 
 const TEST_DB_PATH = ".test_lock_handler.db";
-const LOCK_TIMEOUT_MS = 60000;
 
 const deleteIfExists = (filePath: string): void => {
   try {
@@ -44,7 +43,7 @@ describe("lock handler", () => {
   let agentKey = "";
   let config = createDataConfig({ dbPath: TEST_DB_PATH });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     deleteIfExists(TEST_DB_PATH);
     config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
@@ -52,7 +51,7 @@ describe("lock handler", () => {
     if (!result.ok) { throw new Error("expected ok"); }
     db = result.value;
 
-    const regResult = db.register("lock-handler-agent");
+    const regResult = await db.register("lock-handler-agent");
     if (!regResult.ok) { throw new Error("expected ok"); }
     agentName = regResult.value.agentName;
     agentKey = regResult.value.agentKey;
@@ -129,7 +128,7 @@ describe("lock handler", () => {
   it("force_release fails on non-expired lock", async () => {
     if (!db) { throw new Error("expected db"); }
     // Register second agent
-    const reg2 = db.register("force-handler-agent");
+    const reg2 = await db.register("force-handler-agent");
     if (!reg2.ok) { throw new Error("expected ok"); }
     const agent2Name = reg2.value.agentName;
     const agent2Key = reg2.value.agentKey;
@@ -212,7 +211,7 @@ describe("lock handler", () => {
 
   it("acquire returns error when held by another", async () => {
     if (!db) { throw new Error("expected db"); }
-    const reg2 = db.register("blocker-agent");
+    const reg2 = await db.register("blocker-agent");
     if (!reg2.ok) { throw new Error("expected ok"); }
 
     // First agent acquires

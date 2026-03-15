@@ -97,20 +97,21 @@ const stringField = (
 
 /** Register GET /admin/status route. */
 const registerStatusRoute = (app: Express, db: TooManyCooksDb): void => {
-  app.get("/admin/status", (_req: Request, res: Response) => {
-    const agentsResult = db.listAgents();
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.get("/admin/status", async (_req: Request, res: Response) => {
+    const agentsResult = await db.listAgents();
     const agents = agentsResult.ok
       ? agentsResult.value.map(agentIdentityToJson)
       : [];
-    const locksResult = db.listLocks();
+    const locksResult = await db.listLocks();
     const locks = locksResult.ok
       ? locksResult.value.map(fileLockToJson)
       : [];
-    const plansResult = db.listPlans();
+    const plansResult = await db.listPlans();
     const plans = plansResult.ok
       ? plansResult.value.map(agentPlanToJson)
       : [];
-    const messagesResult = db.listAllMessages();
+    const messagesResult = await db.listAllMessages();
     const messages = messagesResult.ok
       ? messagesResult.value.map(messageToJson)
       : [];
@@ -126,13 +127,14 @@ const registerDeleteLockRoute = (
   db: TooManyCooksDb,
   hub: AdminEventHub,
 ): void => {
-  app.post("/admin/delete-lock", (req: Request, res: Response) => {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.post("/admin/delete-lock", async (req: Request, res: Response) => {
     const filePath = stringField(req.body as Record<string, unknown>, "filePath");
     if (filePath === undefined) {
       sendError(res, 400, "filePath required");
       return;
     }
-    const result = db.adminDeleteLock(filePath);
+    const result = await db.adminDeleteLock(filePath);
     if (result.ok) {
       hub.pushEvent("lock_released", { file_path: filePath });
       res.send(JSON.stringify({ deleted: true }));
@@ -148,13 +150,14 @@ const registerDeleteAgentRoute = (
   db: TooManyCooksDb,
   hub: AdminEventHub,
 ): void => {
-  app.post("/admin/delete-agent", (req: Request, res: Response) => {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.post("/admin/delete-agent", async (req: Request, res: Response) => {
     const agentName = stringField(req.body as Record<string, unknown>, "agentName");
     if (agentName === undefined) {
       sendError(res, 400, "agentName required");
       return;
     }
-    const result = db.adminDeleteAgent(agentName);
+    const result = await db.adminDeleteAgent(agentName);
     if (result.ok) {
       hub.pushEvent("agent_deleted", { agent_name: agentName });
       res.send(JSON.stringify({ deleted: true }));
@@ -169,13 +172,14 @@ const registerResetKeyRoute = (
   app: Express,
   db: TooManyCooksDb,
 ): void => {
-  app.post("/admin/reset-key", (req: Request, res: Response) => {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.post("/admin/reset-key", async (req: Request, res: Response) => {
     const agentName = stringField(req.body as Record<string, unknown>, "agentName");
     if (agentName === undefined) {
       sendError(res, 400, "agentName required");
       return;
     }
-    const result = db.adminResetKey(agentName);
+    const result = await db.adminResetKey(agentName);
     if (result.ok) {
       res.send(JSON.stringify(agentRegistrationToJson(result.value)));
     } else {
@@ -190,7 +194,8 @@ const registerSendMessageRoute = (
   db: TooManyCooksDb,
   hub: AdminEventHub,
 ): void => {
-  app.post("/admin/send-message", (req: Request, res: Response) => {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.post("/admin/send-message", async (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const fromAgent = stringField(body, "fromAgent");
     const toAgent = stringField(body, "toAgent");
@@ -199,7 +204,7 @@ const registerSendMessageRoute = (
       sendError(res, 400, "fromAgent, toAgent, content required");
       return;
     }
-    const result = db.adminSendMessage(fromAgent, toAgent, content);
+    const result = await db.adminSendMessage(fromAgent, toAgent, content);
     if (result.ok) {
       hub.pushEvent("message_sent", {
         from_agent: fromAgent,
@@ -219,8 +224,9 @@ const registerResetRoute = (
   db: TooManyCooksDb,
   hub: AdminEventHub,
 ): void => {
-  app.post("/admin/reset", (_req: Request, res: Response) => {
-    const result = db.adminReset();
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.post("/admin/reset", async (_req: Request, res: Response) => {
+    const result = await db.adminReset();
     if (result.ok) {
       hub.pushEvent("state_reset", {});
       res.send(JSON.stringify({ reset: true }));

@@ -28,7 +28,7 @@ describe("resolveIdentity", () => {
   let agentName = "";
   let agentKey = "";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
@@ -36,58 +36,58 @@ describe("resolveIdentity", () => {
     if (!result.ok) { throw new Error("expected ok"); }
     db = result.value;
 
-    const regResult = db.register("utils-agent");
+    const regResult = await db.register("utils-agent");
     if (!regResult.ok) { throw new Error("expected ok"); }
     agentName = regResult.value.agentName;
     agentKey = regResult.value.agentKey;
   });
 
-  afterEach(() => {
-    db?.close();
+  afterEach(async () => {
+    await db?.close();
     deleteIfExists(TEST_DB_PATH);
   });
 
-  it("resolves from session when no agent_key in args", () => {
+  it("resolves from session when no agent_key in args", async () => {
     if (!db) { throw new Error("expected db"); }
     const getSession = (): SessionIdentity => ({ agentName, agentKey });
-    const result = resolveIdentity(db, {}, getSession);
+    const result = await resolveIdentity(db, {}, getSession);
     assert.strictEqual(result.isError, false);
     if (result.isError) { throw new Error("expected ok"); }
     assert.strictEqual(result.agentName, agentName);
     assert.strictEqual(result.agentKey, agentKey);
   });
 
-  it("resolves from agent_key override", () => {
+  it("resolves from agent_key override", async () => {
     if (!db) { throw new Error("expected db"); }
     const getSession = (): SessionIdentity | null => null;
-    const result = resolveIdentity(db, { agent_key: agentKey }, getSession);
+    const result = await resolveIdentity(db, { agent_key: agentKey }, getSession);
     assert.strictEqual(result.isError, false);
     if (result.isError) { throw new Error("expected ok"); }
     assert.strictEqual(result.agentName, agentName);
     assert.strictEqual(result.agentKey, agentKey);
   });
 
-  it("returns error when agent_key is invalid", () => {
+  it("returns error when agent_key is invalid", async () => {
     if (!db) { throw new Error("expected db"); }
     const getSession = (): SessionIdentity | null => null;
-    const result = resolveIdentity(db, { agent_key: "bad-key" }, getSession);
+    const result = await resolveIdentity(db, { agent_key: "bad-key" }, getSession);
     assert.strictEqual(result.isError, true);
   });
 
-  it("returns error when no session and no agent_key", () => {
+  it("returns error when no session and no agent_key", async () => {
     if (!db) { throw new Error("expected db"); }
     const getSession = (): SessionIdentity | null => null;
-    const result = resolveIdentity(db, {}, getSession);
+    const result = await resolveIdentity(db, {}, getSession);
     assert.strictEqual(result.isError, true);
     if (!result.isError) { throw new Error("expected error"); }
     assert.strictEqual(result.result.isError, true);
     assert.ok(result.result.content[0].text.includes("not_registered"));
   });
 
-  it("ignores non-string agent_key in args", () => {
+  it("ignores non-string agent_key in args", async () => {
     if (!db) { throw new Error("expected db"); }
     const getSession = (): SessionIdentity => ({ agentName, agentKey });
-    const result = resolveIdentity(db, { agent_key: 123 }, getSession);
+    const result = await resolveIdentity(db, { agent_key: 123 }, getSession);
     assert.strictEqual(result.isError, false);
     if (result.isError) { throw new Error("expected ok"); }
     assert.strictEqual(result.agentName, agentName);

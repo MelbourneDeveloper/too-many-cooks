@@ -28,7 +28,7 @@ describe("plans", () => {
   let agentName = "";
   let agentKey = "";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     deleteIfExists(TEST_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_DB_PATH });
     const result = createDb(config);
@@ -37,22 +37,22 @@ describe("plans", () => {
     db = result.value;
 
     // Register test agent
-    const regResult = db.register("plan-agent");
+    const regResult = await db.register("plan-agent");
     if (!regResult.ok) {throw new Error("expected ok");}
     const reg = regResult.value;
     agentName = reg.agentName;
     agentKey = reg.agentKey;
   });
 
-  afterEach(() => {
-    db?.close();
+  afterEach(async () => {
+    await db?.close();
     deleteIfExists(TEST_DB_PATH);
   });
 
-  it("updatePlan creates new plan", () => {
+  it("updatePlan creates new plan", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    const result = db.updatePlan(
+    const result = await db.updatePlan(
       agentName,
       agentKey,
       "Fix all bugs",
@@ -61,57 +61,57 @@ describe("plans", () => {
     assert.strictEqual(result.ok, true);
   });
 
-  it("updatePlan updates existing plan", () => {
+  it("updatePlan updates existing plan", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    db.updatePlan(agentName, agentKey, "Goal 1", "Task 1");
+    await db.updatePlan(agentName, agentKey, "Goal 1", "Task 1");
 
-    const result = db.updatePlan(agentName, agentKey, "Goal 2", "Task 2");
+    const result = await db.updatePlan(agentName, agentKey, "Goal 2", "Task 2");
     assert.strictEqual(result.ok, true);
 
-    const getPlan = db.getPlan(agentName);
+    const getPlan = await db.getPlan(agentName);
     if (!getPlan.ok) {throw new Error("expected ok");}
     const plan = getPlan.value!;
     assert.strictEqual(plan.goal, "Goal 2");
     assert.strictEqual(plan.currentTask, "Task 2");
   });
 
-  it("updatePlan fails with invalid credentials", () => {
+  it("updatePlan fails with invalid credentials", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    const result = db.updatePlan(agentName, "wrong-key", "Goal", "Task");
+    const result = await db.updatePlan(agentName, "wrong-key", "Goal", "Task");
     assert.strictEqual(result.ok, false);
     if (result.ok) {throw new Error("expected error");}
     assert.strictEqual(result.error.code, ERR_UNAUTHORIZED);
   });
 
-  it("updatePlan fails for goal exceeding max length", () => {
+  it("updatePlan fails for goal exceeding max length", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
     const longGoal = "x".repeat(101); // Default max is 100
-    const result = db.updatePlan(agentName, agentKey, longGoal, "Task");
+    const result = await db.updatePlan(agentName, agentKey, longGoal, "Task");
     assert.strictEqual(result.ok, false);
     if (result.ok) {throw new Error("expected error");}
     assert.strictEqual(result.error.code, ERR_VALIDATION);
     assert.ok(result.error.message.includes("100"));
   });
 
-  it("updatePlan fails for task exceeding max length", () => {
+  it("updatePlan fails for task exceeding max length", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
     const longTask = "x".repeat(101);
-    const result = db.updatePlan(agentName, agentKey, "Goal", longTask);
+    const result = await db.updatePlan(agentName, agentKey, "Goal", longTask);
     assert.strictEqual(result.ok, false);
     if (result.ok) {throw new Error("expected error");}
     assert.strictEqual(result.error.code, ERR_VALIDATION);
   });
 
-  it("getPlan returns plan for agent", () => {
+  it("getPlan returns plan for agent", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    db.updatePlan(agentName, agentKey, "My Goal", "Current Task");
+    await db.updatePlan(agentName, agentKey, "My Goal", "Current Task");
 
-    const result = db.getPlan(agentName);
+    const result = await db.getPlan(agentName);
     assert.strictEqual(result.ok, true);
     if (!result.ok) {throw new Error("expected ok");}
     const plan = result.value;
@@ -122,33 +122,33 @@ describe("plans", () => {
     assert.ok(plan!.updatedAt > 0);
   });
 
-  it("getPlan returns null for agent without plan", () => {
+  it("getPlan returns null for agent without plan", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
     // Register agent without setting plan
-    const reg2 = db.register("no-plan-agent");
+    const reg2 = await db.register("no-plan-agent");
     if (!reg2.ok) {throw new Error("expected ok");}
     const agent2 = reg2.value;
 
-    const result = db.getPlan(agent2.agentName);
+    const result = await db.getPlan(agent2.agentName);
     assert.strictEqual(result.ok, true);
     if (!result.ok) {throw new Error("expected ok");}
     const plan = result.value;
     assert.strictEqual(plan, null);
   });
 
-  it("listPlans returns all plans", () => {
+  it("listPlans returns all plans", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    db.updatePlan(agentName, agentKey, "Goal 1", "Task 1");
+    await db.updatePlan(agentName, agentKey, "Goal 1", "Task 1");
 
     // Register second agent with plan
-    const reg2 = db.register("plan-agent-2");
+    const reg2 = await db.register("plan-agent-2");
     if (!reg2.ok) {throw new Error("expected ok");}
     const agent2 = reg2.value;
-    db.updatePlan(agent2.agentName, agent2.agentKey, "Goal 2", "Task 2");
+    await db.updatePlan(agent2.agentName, agent2.agentKey, "Goal 2", "Task 2");
 
-    const result = db.listPlans();
+    const result = await db.listPlans();
     assert.strictEqual(result.ok, true);
     if (!result.ok) {throw new Error("expected ok");}
     const plans = result.value;
@@ -159,16 +159,16 @@ describe("plans", () => {
     );
   });
 
-  it("plan updatedAt changes on update", () => {
+  it("plan updatedAt changes on update", async () => {
     assert.notStrictEqual(db, undefined);
     if (!db) {throw new Error("expected db");}
-    db.updatePlan(agentName, agentKey, "Goal", "Task 1");
-    const getPlan1 = db.getPlan(agentName);
+    await db.updatePlan(agentName, agentKey, "Goal", "Task 1");
+    const getPlan1 = await db.getPlan(agentName);
     if (!getPlan1.ok) {throw new Error("expected ok");}
     const plan1 = getPlan1.value;
 
-    db.updatePlan(agentName, agentKey, "Goal", "Task 2");
-    const getPlan2 = db.getPlan(agentName);
+    await db.updatePlan(agentName, agentKey, "Goal", "Task 2");
+    const getPlan2 = await db.getPlan(agentName);
     if (!getPlan2.ok) {throw new Error("expected ok");}
     const plan2 = getPlan2.value;
 

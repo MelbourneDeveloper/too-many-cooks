@@ -56,82 +56,82 @@ const ACTIVE_FALSE = 0;
 
 /** Data access layer type. */
 export type TooManyCooksDb = {
-  readonly register: (agentName: string) => Result<AgentRegistration, DbError>;
+  readonly register: (agentName: string) => Promise<Result<AgentRegistration, DbError>>;
   readonly authenticate: (
     agentName: string,
     agentKey: string,
-  ) => Result<AgentIdentity, DbError>;
-  readonly lookupByKey: (agentKey: string) => Result<string, DbError>;
-  readonly listAgents: () => Result<readonly AgentIdentity[], DbError>;
+  ) => Promise<Result<AgentIdentity, DbError>>;
+  readonly lookupByKey: (agentKey: string) => Promise<Result<string, DbError>>;
+  readonly listAgents: () => Promise<Result<readonly AgentIdentity[], DbError>>;
   readonly acquireLock: (
     filePath: string,
     agentName: string,
     agentKey: string,
     reason: string | null | undefined,
     timeoutMs: number,
-  ) => Result<LockResult, DbError>;
+  ) => Promise<Result<LockResult, DbError>>;
   readonly releaseLock: (
     filePath: string,
     agentName: string,
     agentKey: string,
-  ) => Result<void, DbError>;
+  ) => Promise<Result<void, DbError>>;
   readonly forceReleaseLock: (
     filePath: string,
     agentName: string,
     agentKey: string,
-  ) => Result<void, DbError>;
+  ) => Promise<Result<void, DbError>>;
   readonly queryLock: (
     filePath: string,
-  ) => Result<FileLock | null, DbError>;
-  readonly listLocks: () => Result<readonly FileLock[], DbError>;
+  ) => Promise<Result<FileLock | null, DbError>>;
+  readonly listLocks: () => Promise<Result<readonly FileLock[], DbError>>;
   readonly renewLock: (
     filePath: string,
     agentName: string,
     agentKey: string,
     timeoutMs: number,
-  ) => Result<void, DbError>;
+  ) => Promise<Result<void, DbError>>;
   readonly sendMessage: (
     fromAgent: string,
     fromKey: string,
     toAgent: string,
     content: string,
-  ) => Result<string, DbError>;
+  ) => Promise<Result<string, DbError>>;
   readonly getMessages: (
     agentName: string,
     agentKey: string,
     options?: { readonly unreadOnly?: boolean },
-  ) => Result<readonly Message[], DbError>;
+  ) => Promise<Result<readonly Message[], DbError>>;
   readonly markRead: (
     messageId: string,
     agentName: string,
     agentKey: string,
-  ) => Result<void, DbError>;
+  ) => Promise<Result<void, DbError>>;
   readonly updatePlan: (
     agentName: string,
     agentKey: string,
     goal: string,
     currentTask: string,
-  ) => Result<void, DbError>;
+  ) => Promise<Result<void, DbError>>;
   readonly getPlan: (
     agentName: string,
-  ) => Result<AgentPlan | null, DbError>;
-  readonly listPlans: () => Result<readonly AgentPlan[], DbError>;
-  readonly listAllMessages: () => Result<readonly Message[], DbError>;
-  readonly activate: (agentName: string) => Result<void, DbError>;
-  readonly deactivate: (agentName: string) => Result<void, DbError>;
-  readonly deactivateAll: () => Result<void, DbError>;
-  readonly close: () => Result<void, DbError>;
-  readonly adminDeleteLock: (filePath: string) => Result<void, DbError>;
-  readonly adminDeleteAgent: (agentName: string) => Result<void, DbError>;
+  ) => Promise<Result<AgentPlan | null, DbError>>;
+  readonly listPlans: () => Promise<Result<readonly AgentPlan[], DbError>>;
+  readonly listAllMessages: () => Promise<Result<readonly Message[], DbError>>;
+  readonly activate: (agentName: string) => Promise<Result<void, DbError>>;
+  readonly deactivate: (agentName: string) => Promise<Result<void, DbError>>;
+  readonly deactivateAll: () => Promise<Result<void, DbError>>;
+  readonly close: () => Promise<Result<void, DbError>>;
+  readonly adminDeleteLock: (filePath: string) => Promise<Result<void, DbError>>;
+  readonly adminDeleteAgent: (agentName: string) => Promise<Result<void, DbError>>;
   readonly adminResetKey: (
     agentName: string,
-  ) => Result<AgentRegistration, DbError>;
+  ) => Promise<Result<AgentRegistration, DbError>>;
   readonly adminSendMessage: (
     fromAgent: string,
     toAgent: string,
     content: string,
-  ) => Result<string, DbError>;
-  readonly adminReset: () => Result<void, DbError>;
+  ) => Promise<Result<string, DbError>>;
+  readonly adminReset: () => Promise<Result<void, DbError>>;
 };
 
 /** SQLite-specific retryable errors. */
@@ -907,33 +907,33 @@ const createDbOps = (
   config: TooManyCooksDataConfig,
   log: Logger,
 ): TooManyCooksDb => ({
-  register: (name) => register(db, log, name),
-  authenticate: (name, key) => authenticate(db, log, name, key),
-  lookupByKey: (key) => lookupByKey(db, log, key),
-  listAgents: () => listAgents(db, log),
-  acquireLock: (path, name, key, reason, timeout) =>
+  register: async (name) => register(db, log, name),
+  authenticate: async (name, key) => authenticate(db, log, name, key),
+  lookupByKey: async (key) => lookupByKey(db, log, key),
+  listAgents: async () => listAgents(db, log),
+  acquireLock: async (path, name, key, reason, timeout) =>
     acquireLock(db, log, path, name, key, reason, timeout),
-  releaseLock: (path, name, key) => releaseLock(db, log, path, name, key),
-  forceReleaseLock: (path, name, key) =>
+  releaseLock: async (path, name, key) => releaseLock(db, log, path, name, key),
+  forceReleaseLock: async (path, name, key) =>
     forceReleaseLock(db, log, path, name, key),
-  queryLock: (path) => queryLock(db, log, path),
-  listLocks: () => listLocks(db, log),
-  renewLock: (path, name, key, timeout) =>
+  queryLock: async (path) => queryLock(db, log, path),
+  listLocks: async () => listLocks(db, log),
+  renewLock: async (path, name, key, timeout) =>
     renewLock(db, log, path, name, key, timeout),
-  sendMessage: (from, key, to, content) =>
+  sendMessage: async (from, key, to, content) =>
     sendMessage(db, log, from, key, to, content, config.maxMessageLength),
-  getMessages: (name, key, options) =>
+  getMessages: async (name, key, options) =>
     getMessages(db, log, name, key, options?.unreadOnly ?? true),
-  markRead: (id, name, key) => markRead(db, log, id, name, key),
-  updatePlan: (name, key, goal, task) =>
+  markRead: async (id, name, key) => markRead(db, log, id, name, key),
+  updatePlan: async (name, key, goal, task) =>
     updatePlan(db, log, name, key, goal, task, config.maxPlanLength),
-  getPlan: (name) => getPlan(db, log, name),
-  listPlans: () => listPlans(db, log),
-  listAllMessages: () => listAllMessages(db, log),
-  activate: (name) => setActive(db, log, name, true),
-  deactivate: (name) => setActive(db, log, name, false),
-  deactivateAll: () => deactivateAll(db, log),
-  close: (): Result<undefined, DbError> => {
+  getPlan: async (name) => getPlan(db, log, name),
+  listPlans: async () => listPlans(db, log),
+  listAllMessages: async () => listAllMessages(db, log),
+  activate: async (name) => setActive(db, log, name, true),
+  deactivate: async (name) => setActive(db, log, name, false),
+  deactivateAll: async () => deactivateAll(db, log),
+  close: async (): Promise<Result<undefined, DbError>> => {
     log.info("Closing database");
     try {
       db.close();
@@ -942,10 +942,10 @@ const createDbOps = (
       return error({ code: ERR_DATABASE, message: String(e) });
     }
   },
-  adminDeleteLock: (path) => adminDeleteLock(db, log, path),
-  adminDeleteAgent: (name) => adminDeleteAgent(db, log, name),
-  adminResetKey: (name) => adminResetKey(db, log, name),
-  adminSendMessage: (from, to, content) =>
+  adminDeleteLock: async (path) => adminDeleteLock(db, log, path),
+  adminDeleteAgent: async (name) => adminDeleteAgent(db, log, name),
+  adminResetKey: async (name) => adminResetKey(db, log, name),
+  adminSendMessage: async (from, to, content) =>
     adminSendMessage(db, log, from, to, content, config.maxMessageLength),
-  adminReset: () => adminReset(db, log),
+  adminReset: async () => adminReset(db, log),
 });

@@ -63,20 +63,20 @@ export const createPlanHandler = (
   async (args: Record<string, unknown>): Promise<CallToolResult> => {
     const actionArg = args.action;
     if (typeof actionArg !== "string") {
-      return await Promise.resolve(errorContent("missing_parameter: action is required"));
+      return errorContent("missing_parameter: action is required");
     }
     const action = actionArg;
     const log = logger.child({ tool: "plan", action });
 
-    if (action === "list") {return await Promise.resolve(handleList(db));}
+    if (action === "list") {return await handleList(db);}
 
-    const identity = resolveIdentity(db, args, getSession);
-    if (identity.isError) {return await Promise.resolve(identity.result);}
+    const identity = await resolveIdentity(db, args, getSession);
+    if (identity.isError) {return identity.result;}
     const { agentName, agentKey } = identity;
 
     switch (action) {
       case "update":
-        return await Promise.resolve(handleUpdate(
+        return await handleUpdate(
           db,
           emitter,
           log,
@@ -86,18 +86,18 @@ export const createPlanHandler = (
           typeof args.current_task === "string"
             ? args.current_task
             : null,
-        ));
+        );
       case "get":
-        return await Promise.resolve(handleGet(db, agentName));
+        return await handleGet(db, agentName);
       default:
-        return await Promise.resolve({
+        return {
           content: [
             textContent(
               JSON.stringify({ error: `Unknown action: ${action}` }),
             ),
           ],
           isError: true,
-        });
+        };
     }
   };
 
@@ -105,7 +105,7 @@ export const createPlanHandler = (
 // Update
 // ---------------------------------------------------------------------------
 
-const handleUpdate = (
+const handleUpdate = async (
   db: TooManyCooksDb,
   emitter: NotificationEmitter,
   log: Logger,
@@ -113,11 +113,11 @@ const handleUpdate = (
   agentKey: string,
   goal: string | null,
   currentTask: string | null,
-): CallToolResult => {
+): Promise<CallToolResult> => {
   if (goal === null || currentTask === null) {
     return errorContent("update requires goal, current_task");
   }
-  const result = db.updatePlan(agentName, agentKey, goal, currentTask);
+  const result = await db.updatePlan(agentName, agentKey, goal, currentTask);
   if (!result.ok) {return makeErrorResult(result.error);}
   emitter.emit(EVENT_PLAN_UPDATED, {
     agent_name: agentName,
@@ -135,11 +135,11 @@ const handleUpdate = (
 // Get
 // ---------------------------------------------------------------------------
 
-const handleGet = (
+const handleGet = async (
   db: TooManyCooksDb,
   agentName: string,
-): CallToolResult => {
-  const result = db.getPlan(agentName);
+): Promise<CallToolResult> => {
+  const result = await db.getPlan(agentName);
   if (!result.ok) {return makeErrorResult(result.error);}
   if (result.value !== null) {
     return {
@@ -161,8 +161,8 @@ const handleGet = (
 // List
 // ---------------------------------------------------------------------------
 
-const handleList = (db: TooManyCooksDb): CallToolResult => {
-  const result = db.listPlans();
+const handleList = async (db: TooManyCooksDb): Promise<CallToolResult> => {
+  const result = await db.listPlans();
   if (!result.ok) {return makeErrorResult(result.error);}
   return {
     content: [
