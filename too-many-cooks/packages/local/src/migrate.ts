@@ -52,9 +52,9 @@ export const hasMigrationsDir: () => boolean = (): boolean => migrationsDir() !=
 /** Push the Prisma schema directly to the database — for dev/CI where migration files are not committed. */
 export const pushSchemaViaPrisma: (dbPath: string) => void = (dbPath: string): void => {
   const pkgDir: string = localPackageDir();
-  execFileSync("npx", ["prisma", "db", "push", "--skip-generate", "--accept-data-loss"], {
+  execFileSync("npx", ["prisma", "db", "push", "--accept-data-loss", `--url=file:${resolve(dbPath)}`], {
     cwd: pkgDir,
-    env: { ...process.env, DATABASE_URL: `file:${resolve(dbPath)}` },
+    env: { ...process.env },
     stdio: "pipe",
   });
 };
