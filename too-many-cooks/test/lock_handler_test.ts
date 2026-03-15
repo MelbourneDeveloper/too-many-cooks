@@ -15,7 +15,6 @@ import type { SessionIdentity } from "../lib/src/types.js";
 import { createLockHandler } from "../lib/src/tools/lock_tool.js";
 
 const TEST_DB_PATH = ".test_lock_handler.db";
-const LOCK_TIMEOUT_MS = 60000;
 
 const deleteIfExists = (filePath: string): void => {
   try {

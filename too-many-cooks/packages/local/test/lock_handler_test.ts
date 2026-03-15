@@ -16,7 +16,6 @@ import type { SessionIdentity } from "@too-many-cooks/core";
 import { createDb } from "../src/db-sqlite.js";
 
 const TEST_DB_PATH = ".test_lock_handler.db";
-const LOCK_TIMEOUT_MS = 60000;
 
 const deleteIfExists = (filePath: string): void => {
   try {
