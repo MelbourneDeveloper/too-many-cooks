@@ -32,12 +32,12 @@ const MESSAGES_FIELD = "messages";
 // Types
 // ============================================================
 
-interface StatusResponse {
+type StatusResponse = {
   readonly agents: readonly unknown[];
   readonly locks: readonly unknown[];
   readonly plans: readonly unknown[];
   readonly messages: readonly unknown[];
-}
+};
 
 // ============================================================
 // Helpers

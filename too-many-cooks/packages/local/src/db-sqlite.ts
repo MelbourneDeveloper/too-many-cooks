@@ -39,66 +39,92 @@ import {
 } from "@too-many-cooks/core";
 
 /** Key length in bytes for generating hex keys. */
-const KEY_BYTE_LENGTH = 32;
+const KEY_BYTE_LENGTH: number = 32;
 
 /** Length of message ID substring. */
-const MESSAGE_ID_LENGTH = 16;
+const MESSAGE_ID_LENGTH: number = 16;
 
 /** Minimum agent name length. */
-const MIN_AGENT_NAME_LENGTH = 1;
+const MIN_AGENT_NAME_LENGTH: number = 1;
 
 /** Maximum agent name length. */
-const MAX_AGENT_NAME_LENGTH = 50;
+const MAX_AGENT_NAME_LENGTH: number = 50;
 
 /** Active flag value. */
-const ACTIVE_TRUE = 1;
+const ACTIVE_TRUE: number = 1;
 
 /** Inactive flag value. */
-const ACTIVE_FALSE = 0;
+const ACTIVE_FALSE: number = 0;
 
 /** SQLite-specific retryable errors. */
-const isSqliteRetryable = (err: string): boolean =>
-  {return err.includes("disk I/O error") ||
+const isSqliteRetryable: (err: string) => boolean = (err: string): boolean =>
+  err.includes("disk I/O error") ||
   err.includes("database is locked") ||
-  err.includes("SQLITE_BUSY")};
+  err.includes("SQLITE_BUSY");
 
 /** Create a no-op logger. */
-const noOpLogger = (): Logger =>
-  {return createLoggerWithContext(createLoggingContext())};
+const noOpLogger: () => Logger = (): Logger =>
+  createLoggerWithContext(createLoggingContext());
 
 /** Generate a hex key from random bytes. */
-const generateKey = (): string =>
-  {return randomBytes(KEY_BYTE_LENGTH).toString("hex")};
+const generateKey: () => string = (): string =>
+  randomBytes(KEY_BYTE_LENGTH).toString("hex");
 
 /** Current time in milliseconds. */
-const now = (): number => {return Date.now()};
+const now: () => number = (): number => Date.now();
+
+/** Type guard: check if a value is a plain object (Record<string, unknown>). */
+const isRecord: (value: unknown) => value is Record<string, unknown> = (
+  value: unknown,
+): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** Narrow an unknown SQLite row to Record<string, unknown> or undefined. */
+const toRow: (value: unknown) => Record<string, unknown> | undefined = (
+  value: unknown,
+): Record<string, unknown> | undefined =>
+  isRecord(value) ? value : undefined;
+
+/** Narrow unknown SQLite rows array to ReadonlyArray<Record<string, unknown>>. */
+const toRows: (value: unknown[]) => ReadonlyArray<Record<string, unknown>> = (
+  value: unknown[],
+): ReadonlyArray<Record<string, unknown>> =>
+  value.filter(isRecord);
 
 /** Create database instance with retry policy. */
-export const createDb = (
+export const createDb: (
+  config: TooManyCooksDataConfig,
+  logger?: Logger,
+  retryPolicy?: RetryPolicy,
+) => Result<TooManyCooksDb, string> = (
   config: TooManyCooksDataConfig,
   logger?: Logger,
   retryPolicy: RetryPolicy = defaultRetryPolicy,
 ): Result<TooManyCooksDb, string> => {
-  const log = logger?.child({ component: "db" }) ?? noOpLogger();
+  const log: Logger = logger?.child({ component: "db" }) ?? noOpLogger();
   log.info(`Opening database at ${config.dbPath}`);
 
   return withRetry(
     retryPolicy,
     isSqliteRetryable,
-    () => {return tryCreateDb(config, log)},
-    (attempt, err, delayMs) =>
-      { log.warn(
+    () => tryCreateDb(config, log),
+    (attempt: number, err: string, delayMs: number): void => {
+      log.warn(
         `Attempt ${String(attempt)} failed (retryable): ${err}. Retrying in ${String(delayMs)}ms...`,
-      ); },
+      );
+    },
   );
 };
 
 /** Try to create and initialize the database. */
-const tryCreateDb = (
+const tryCreateDb: (
+  config: TooManyCooksDataConfig,
+  log: Logger,
+) => Result<TooManyCooksDb, string> = (
   config: TooManyCooksDataConfig,
   log: Logger,
 ): Result<TooManyCooksDb, string> => {
-  const dbDir = dirname(config.dbPath);
+  const dbDir: string = dirname(config.dbPath);
   if (!existsSync(dbDir)) {
     log.info(`Creating database directory: ${dbDir}`);
     try {
@@ -109,7 +135,7 @@ const tryCreateDb = (
   }
 
   try {
-    const db = new Database(config.dbPath);
+    const db: Database.Database = new Database(config.dbPath);
     db.pragma("foreign_keys = ON");
     return initSchema(db, log, config);
   } catch (e: unknown) {
@@ -118,7 +144,11 @@ const tryCreateDb = (
 };
 
 /** Initialize database schema. */
-const initSchema = (
+const initSchema: (
+  db: Database.Database,
+  log: Logger,
+  config: TooManyCooksDataConfig,
+) => Result<TooManyCooksDb, string> = (
   db: Database.Database,
   log: Logger,
   config: TooManyCooksDataConfig,
@@ -129,23 +159,27 @@ const initSchema = (
     log.debug("Schema initialized successfully");
     return success(createDbOps(db, config, log));
   } catch (e: unknown) {
-    const msg = String(e);
+    const msg: string = String(e);
     log.error(`Schema initialization failed: ${msg}`);
     return error(msg);
   }
 };
 
 /** Authenticate agent and update last_active timestamp. */
-const authAndUpdate = (
+const authAndUpdate: (
+  db: Database.Database,
+  agentName: string,
+  agentKey: string,
+) => Result<void, DbError> = (
   db: Database.Database,
   agentName: string,
   agentKey: string,
 ): Result<void, DbError> => {
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "UPDATE identity SET last_active = ? WHERE agent_name = ? AND agent_key = ?",
     );
-    const result = stmt.run(now(), agentName, agentKey);
+    const result: Database.RunResult = stmt.run(now(), agentName, agentKey);
     return result.changes === 0
       ? error({ code: ERR_UNAUTHORIZED, message: "Invalid credentials" })
       : success(undefined);
@@ -155,7 +189,11 @@ const authAndUpdate = (
 };
 
 /** Register a new agent. */
-const register = (
+const register: (
+  db: Database.Database,
+  log: Logger,
+  name: string,
+) => Result<AgentRegistration, DbError> = (
   db: Database.Database,
   log: Logger,
   name: string,
@@ -165,10 +203,10 @@ const register = (
     log.warn("Registration failed: invalid name length");
     return error({ code: ERR_VALIDATION, message: "Name must be 1-50 chars" });
   }
-  const key = generateKey();
-  const timestamp = now();
+  const key: string = generateKey();
+  const timestamp: number = now();
   try {
-    const stmt = db.prepare(`
+    const stmt: Database.Statement = db.prepare(`
       INSERT INTO identity (agent_name, agent_key, active, registered_at, last_active)
       VALUES (?, ?, 1, ?, ?)
       ON CONFLICT(agent_name) DO UPDATE SET
@@ -178,7 +216,7 @@ const register = (
         last_active = excluded.last_active
       WHERE active = 0
     `);
-    const result = stmt.run(name, key, timestamp, timestamp);
+    const result: Database.RunResult = stmt.run(name, key, timestamp, timestamp);
     if (result.changes > 0) {
       log.info(`Agent registered: ${name}`);
       return success({ agentName: name, agentKey: key });
@@ -192,15 +230,18 @@ const register = (
 };
 
 /** Get agent identity by name. */
-const getAgent = (
+const getAgent: (
+  db: Database.Database,
+  name: string,
+) => Result<AgentIdentity, DbError> = (
   db: Database.Database,
   name: string,
 ): Result<AgentIdentity, DbError> => {
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "SELECT agent_name, registered_at, last_active FROM identity WHERE agent_name = ?",
     );
-    const row = stmt.get(name) as Record<string, unknown> | undefined;
+    const row: Record<string, unknown> | undefined = toRow(stmt.get(name));
     return row === undefined
       ? error({ code: ERR_NOT_FOUND, message: "Agent not found" })
       : success(agentIdentityFromJson(row));
@@ -210,14 +251,19 @@ const getAgent = (
 };
 
 /** Authenticate agent and return identity. */
-const authenticate = (
+const authenticate: (
+  db: Database.Database,
+  log: Logger,
+  name: string,
+  key: string,
+) => Result<AgentIdentity, DbError> = (
   db: Database.Database,
   log: Logger,
   name: string,
   key: string,
 ): Result<AgentIdentity, DbError> => {
   log.debug(`Authenticating agent: ${name}`);
-  const authResult = authAndUpdate(db, name, key);
+  const authResult: Result<void, DbError> = authAndUpdate(db, name, key);
   if (!authResult.ok) {
     log.warn(`Authentication failed for ${name}`);
     return authResult;
@@ -226,21 +272,25 @@ const authenticate = (
 };
 
 /** Look up agent name by key. */
-const lookupByKey = (
+const lookupByKey: (
+  db: Database.Database,
+  log: Logger,
+  key: string,
+) => Result<string, DbError> = (
   db: Database.Database,
   log: Logger,
   key: string,
 ): Result<string, DbError> => {
   log.debug("Looking up agent by key");
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "SELECT agent_name FROM identity WHERE agent_key = ?",
     );
-    const row = stmt.get(key) as Record<string, unknown> | undefined;
+    const row: Record<string, unknown> | undefined = toRow(stmt.get(key));
     if (row === undefined) {
       return error({ code: ERR_UNAUTHORIZED, message: "Invalid key" });
     }
-    const agentName = row.agent_name;
+    const agentName: unknown = row.agent_name;
     return typeof agentName === "string"
       ? success(agentName)
       : error({ code: ERR_DATABASE, message: "Missing agent_name" });
@@ -250,16 +300,19 @@ const lookupByKey = (
 };
 
 /** List all active agents. */
-const listAgents = (
+const listAgents: (
+  db: Database.Database,
+  log: Logger,
+) => Result<readonly AgentIdentity[], DbError> = (
   db: Database.Database,
   log: Logger,
 ): Result<readonly AgentIdentity[], DbError> => {
   log.debug("Listing all agents");
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "SELECT agent_name, registered_at, last_active FROM identity WHERE active = 1",
     );
-    const rows = stmt.all() as ReadonlyArray<Record<string, unknown>>;
+    const rows: ReadonlyArray<Record<string, unknown>> = toRows(stmt.all());
     return success(rows.map(agentIdentityFromJson));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -267,15 +320,19 @@ const listAgents = (
 };
 
 /** Query lock for a file path. */
-const queryLock = (
+const queryLock: (
+  db: Database.Database,
+  log: Logger,
+  filePath: string,
+) => Result<FileLock | null, DbError> = (
   db: Database.Database,
   log: Logger,
   filePath: string,
 ): Result<FileLock | null, DbError> => {
   log.trace(`Querying lock for ${filePath}`);
   try {
-    const stmt = db.prepare("SELECT * FROM locks WHERE file_path = ?");
-    const row = stmt.get(filePath) as Record<string, unknown> | undefined;
+    const stmt: Database.Statement = db.prepare("SELECT * FROM locks WHERE file_path = ?");
+    const row: Record<string, unknown> | undefined = toRow(stmt.get(filePath));
     return row === undefined ? success(null) : success(fileLockFromJson(row));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -283,7 +340,10 @@ const queryLock = (
 };
 
 /** Delete a lock by file path. */
-const deleteExpiredLock = (
+const deleteExpiredLock: (
+  db: Database.Database,
+  filePath: string,
+) => Result<void, DbError> = (
   db: Database.Database,
   filePath: string,
 ): Result<void, DbError> => {
@@ -296,7 +356,15 @@ const deleteExpiredLock = (
 };
 
 /** Acquire a file lock. */
-const acquireLock = (
+const acquireLock: (
+  db: Database.Database,
+  log: Logger,
+  filePath: string,
+  agentName: string,
+  agentKey: string,
+  reason: string | null | undefined,
+  timeoutMs: number,
+) => Result<LockResult, DbError> = (
   db: Database.Database,
   log: Logger,
   filePath: string,
@@ -306,13 +374,13 @@ const acquireLock = (
   timeoutMs: number,
 ): Result<LockResult, DbError> => {
   log.debug(`Acquiring lock on ${filePath} for ${agentName}`);
-  const authResult = authAndUpdate(db, agentName, agentKey);
+  const authResult: Result<void, DbError> = authAndUpdate(db, agentName, agentKey);
   if (!authResult.ok) {return authResult;}
 
-  const timestamp = now();
-  const expiresAt = timestamp + timeoutMs;
+  const timestamp: number = now();
+  const expiresAt: number = timestamp + timeoutMs;
 
-  const existing = queryLock(db, log, filePath);
+  const existing: Result<FileLock | null, DbError> = queryLock(db, log, filePath);
   if (!existing.ok) {return existing;}
   if (existing.value !== null) {
     if (existing.value.expiresAt > timestamp) {
@@ -322,7 +390,7 @@ const acquireLock = (
         error: `Held by ${existing.value.agentName} until ${String(existing.value.expiresAt)}`,
       });
     }
-    const delResult = deleteExpiredLock(db, filePath);
+    const delResult: Result<void, DbError> = deleteExpiredLock(db, filePath);
     if (!delResult.ok) {return delResult;}
   }
 
@@ -330,7 +398,14 @@ const acquireLock = (
 };
 
 /** Insert a new lock row. */
-const insertLock = (
+const insertLock: (
+  db: Database.Database,
+  filePath: string,
+  agentName: string,
+  timestamp: number,
+  expiresAt: number,
+  reason: string | null | undefined,
+) => Result<LockResult, DbError> = (
   db: Database.Database,
   filePath: string,
   agentName: string,
@@ -339,7 +414,7 @@ const insertLock = (
   reason: string | null | undefined,
 ): Result<LockResult, DbError> => {
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "INSERT INTO locks (file_path, agent_name, acquired_at, expires_at, reason) VALUES (?, ?, ?, ?, ?)",
     );
     stmt.run(filePath, agentName, timestamp, expiresAt, reason ?? null);
@@ -349,7 +424,7 @@ const insertLock = (
       error: undefined,
     });
   } catch (e: unknown) {
-    const msg = String(e);
+    const msg: string = String(e);
     return msg.includes("UNIQUE")
       ? success({ acquired: false, lock: undefined, error: "Lock race condition" })
       : error({ code: ERR_DATABASE, message: msg });
@@ -357,7 +432,13 @@ const insertLock = (
 };
 
 /** Release a file lock. */
-const releaseLock = (
+const releaseLock: (
+  db: Database.Database,
+  log: Logger,
+  filePath: string,
+  agentName: string,
+  agentKey: string,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
   filePath: string,
@@ -365,14 +446,14 @@ const releaseLock = (
   agentKey: string,
 ): Result<void, DbError> => {
   log.debug(`Releasing lock on ${filePath} for ${agentName}`);
-  const authResult = authAndUpdate(db, agentName, agentKey);
+  const authResult: Result<void, DbError> = authAndUpdate(db, agentName, agentKey);
   if (!authResult.ok) {return authResult;}
 
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "DELETE FROM locks WHERE file_path = ? AND agent_name = ?",
     );
-    const result = stmt.run(filePath, agentName);
+    const result: Database.RunResult = stmt.run(filePath, agentName);
     return result.changes === 0
       ? error({ code: ERR_NOT_FOUND, message: "Lock not held by you" })
       : success(undefined);
@@ -382,7 +463,13 @@ const releaseLock = (
 };
 
 /** Force release an expired lock. */
-const forceReleaseLock = (
+const forceReleaseLock: (
+  db: Database.Database,
+  log: Logger,
+  filePath: string,
+  agentName: string,
+  agentKey: string,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
   filePath: string,
@@ -390,10 +477,10 @@ const forceReleaseLock = (
   agentKey: string,
 ): Result<void, DbError> => {
   log.debug(`Force releasing lock on ${filePath} for ${agentName}`);
-  const authResult = authAndUpdate(db, agentName, agentKey);
+  const authResult: Result<void, DbError> = authAndUpdate(db, agentName, agentKey);
   if (!authResult.ok) {return authResult;}
 
-  const existing = queryLock(db, log, filePath);
+  const existing: Result<FileLock | null, DbError> = queryLock(db, log, filePath);
   if (!existing.ok) {return existing;}
   if (existing.value === null) {
     return error({ code: ERR_NOT_FOUND, message: "No lock exists" });
@@ -408,14 +495,17 @@ const forceReleaseLock = (
 };
 
 /** List all locks. */
-const listLocks = (
+const listLocks: (
+  db: Database.Database,
+  log: Logger,
+) => Result<readonly FileLock[], DbError> = (
   db: Database.Database,
   log: Logger,
 ): Result<readonly FileLock[], DbError> => {
   log.trace("Listing all locks");
   try {
-    const stmt = db.prepare("SELECT * FROM locks");
-    const rows = stmt.all() as ReadonlyArray<Record<string, unknown>>;
+    const stmt: Database.Statement = db.prepare("SELECT * FROM locks");
+    const rows: ReadonlyArray<Record<string, unknown>> = toRows(stmt.all());
     return success(rows.map(fileLockFromJson));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -423,7 +513,14 @@ const listLocks = (
 };
 
 /** Renew a file lock. */
-const renewLock = (
+const renewLock: (
+  db: Database.Database,
+  log: Logger,
+  filePath: string,
+  agentName: string,
+  agentKey: string,
+  timeoutMs: number,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
   filePath: string,
@@ -432,15 +529,15 @@ const renewLock = (
   timeoutMs: number,
 ): Result<void, DbError> => {
   log.debug(`Renewing lock on ${filePath} for ${agentName}`);
-  const authResult = authAndUpdate(db, agentName, agentKey);
+  const authResult: Result<void, DbError> = authAndUpdate(db, agentName, agentKey);
   if (!authResult.ok) {return authResult;}
 
-  const newExpiry = now() + timeoutMs;
+  const newExpiry: number = now() + timeoutMs;
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "UPDATE locks SET expires_at = ?, version = version + 1 WHERE file_path = ? AND agent_name = ?",
     );
-    const result = stmt.run(newExpiry, filePath, agentName);
+    const result: Database.RunResult = stmt.run(newExpiry, filePath, agentName);
     return result.changes === 0
       ? error({ code: ERR_NOT_FOUND, message: "Lock not held by you" })
       : success(undefined);
@@ -450,7 +547,15 @@ const renewLock = (
 };
 
 /** Send a message between agents. */
-const sendMessage = (
+const sendMessage: (
+  db: Database.Database,
+  log: Logger,
+  fromAgent: string,
+  fromKey: string,
+  toAgent: string,
+  content: string,
+  maxLen: number,
+) => Result<string, DbError> = (
   db: Database.Database,
   log: Logger,
   fromAgent: string,
@@ -460,7 +565,7 @@ const sendMessage = (
   maxLen: number,
 ): Result<string, DbError> => {
   log.debug(`Sending message from ${fromAgent} to ${toAgent}`);
-  const authResult = authAndUpdate(db, fromAgent, fromKey);
+  const authResult: Result<void, DbError> = authAndUpdate(db, fromAgent, fromKey);
   if (!authResult.ok) {return authResult;}
 
   if (content.length > maxLen) {
@@ -470,41 +575,46 @@ const sendMessage = (
     });
   }
 
-  const id = generateKey().substring(0, MESSAGE_ID_LENGTH);
-  const timestamp = now();
+  const msgId: string = generateKey().substring(0, MESSAGE_ID_LENGTH);
+  const timestamp: number = now();
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "INSERT INTO messages (id, from_agent, to_agent, content, created_at) VALUES (?, ?, ?, ?, ?)",
     );
-    stmt.run(id, fromAgent, toAgent, content, timestamp);
-    return success(id);
+    stmt.run(msgId, fromAgent, toAgent, content, timestamp);
+    return success(msgId);
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
   }
 };
 
 /** Auto-mark fetched messages as read. */
-const autoMarkRead = (
+const autoMarkRead: (
+  db: Database.Database,
+  log: Logger,
+  agentName: string,
+  messages: readonly Message[],
+) => void = (
   db: Database.Database,
   log: Logger,
   agentName: string,
   messages: readonly Message[],
 ): void => {
-  const unreadIds = messages
-    .filter((m) => {return m.readAt === undefined})
-    .map((m) => {return m.id});
+  const unreadIds: string[] = messages
+    .filter((msg: Message): boolean => msg.readAt === undefined)
+    .map((msg: Message): string => msg.id);
   if (unreadIds.length === 0) {return;}
 
-  const timestamp = now();
+  const timestamp: number = now();
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "UPDATE messages SET read_at = ? WHERE id = ? AND to_agent = ? AND read_at IS NULL",
     );
-    for (const id of unreadIds) {
+    for (const msgId of unreadIds) {
       try {
-        stmt.run(timestamp, id, agentName);
+        stmt.run(timestamp, msgId, agentName);
       } catch (innerErr: unknown) {
-        log.warn(`Failed to mark message ${id} as read: ${String(innerErr)}`);
+        log.warn(`Failed to mark message ${msgId} as read: ${String(innerErr)}`);
       }
     }
     log.debug(`Auto-marked ${String(unreadIds.length)} messages as read for ${agentName}`);
@@ -514,7 +624,13 @@ const autoMarkRead = (
 };
 
 /** Get messages for an agent. */
-const getMessages = (
+const getMessages: (
+  db: Database.Database,
+  log: Logger,
+  agentName: string,
+  agentKey: string,
+  unreadOnly: boolean,
+) => Result<readonly Message[], DbError> = (
   db: Database.Database,
   log: Logger,
   agentName: string,
@@ -522,16 +638,16 @@ const getMessages = (
   unreadOnly: boolean,
 ): Result<readonly Message[], DbError> => {
   log.trace(`Getting messages for ${agentName} (unreadOnly: ${String(unreadOnly)})`);
-  const authResult = authAndUpdate(db, agentName, agentKey);
+  const authResult: Result<void, DbError> = authAndUpdate(db, agentName, agentKey);
   if (!authResult.ok) {return authResult;}
 
-  const sql = unreadOnly
+  const sql: string = unreadOnly
     ? "SELECT * FROM messages WHERE (to_agent = ? OR to_agent = '*') AND read_at IS NULL ORDER BY created_at DESC"
     : "SELECT * FROM messages WHERE (to_agent = ? OR to_agent = '*') ORDER BY created_at DESC";
   try {
-    const stmt = db.prepare(sql);
-    const rows = stmt.all(agentName) as ReadonlyArray<Record<string, unknown>>;
-    const messageList = rows.map(messageFromJson);
+    const stmt: Database.Statement = db.prepare(sql);
+    const rows: ReadonlyArray<Record<string, unknown>> = toRows(stmt.all(agentName));
+    const messageList: Message[] = rows.map(messageFromJson);
     autoMarkRead(db, log, agentName, messageList);
     return success(messageList);
   } catch (e: unknown) {
@@ -540,7 +656,13 @@ const getMessages = (
 };
 
 /** Mark a message as read. */
-const markRead = (
+const markRead: (
+  db: Database.Database,
+  log: Logger,
+  messageId: string,
+  agentName: string,
+  agentKey: string,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
   messageId: string,
@@ -548,14 +670,14 @@ const markRead = (
   agentKey: string,
 ): Result<void, DbError> => {
   log.trace(`Marking message ${messageId} as read for ${agentName}`);
-  const authResult = authAndUpdate(db, agentName, agentKey);
+  const authResult: Result<void, DbError> = authAndUpdate(db, agentName, agentKey);
   if (!authResult.ok) {return authResult;}
 
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "UPDATE messages SET read_at = ? WHERE id = ? AND to_agent = ?",
     );
-    const result = stmt.run(now(), messageId, agentName);
+    const result: Database.RunResult = stmt.run(now(), messageId, agentName);
     return result.changes === 0
       ? error({ code: ERR_NOT_FOUND, message: "Message not found" })
       : success(undefined);
@@ -565,7 +687,15 @@ const markRead = (
 };
 
 /** Update an agent's plan. */
-const updatePlan = (
+const updatePlan: (
+  db: Database.Database,
+  log: Logger,
+  agentName: string,
+  agentKey: string,
+  goal: string,
+  currentTask: string,
+  maxLen: number,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
   agentName: string,
@@ -575,7 +705,7 @@ const updatePlan = (
   maxLen: number,
 ): Result<void, DbError> => {
   log.debug(`Updating plan for ${agentName}`);
-  const authResult = authAndUpdate(db, agentName, agentKey);
+  const authResult: Result<void, DbError> = authAndUpdate(db, agentName, agentKey);
   if (!authResult.ok) {return authResult;}
 
   if (goal.length > maxLen || currentTask.length > maxLen) {
@@ -586,7 +716,7 @@ const updatePlan = (
   }
 
   try {
-    const stmt = db.prepare(`
+    const stmt: Database.Statement = db.prepare(`
       INSERT INTO plans (agent_name, goal, current_task, updated_at)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(agent_name) DO UPDATE SET
@@ -602,15 +732,19 @@ const updatePlan = (
 };
 
 /** Get an agent's plan. */
-const getPlan = (
+const getPlan: (
+  db: Database.Database,
+  log: Logger,
+  agentName: string,
+) => Result<AgentPlan | null, DbError> = (
   db: Database.Database,
   log: Logger,
   agentName: string,
 ): Result<AgentPlan | null, DbError> => {
   log.trace(`Getting plan for ${agentName}`);
   try {
-    const stmt = db.prepare("SELECT * FROM plans WHERE agent_name = ?");
-    const row = stmt.get(agentName) as Record<string, unknown> | undefined;
+    const stmt: Database.Statement = db.prepare("SELECT * FROM plans WHERE agent_name = ?");
+    const row: Record<string, unknown> | undefined = toRow(stmt.get(agentName));
     return row === undefined ? success(null) : success(agentPlanFromJson(row));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -618,14 +752,17 @@ const getPlan = (
 };
 
 /** List all plans. */
-const listPlans = (
+const listPlans: (
+  db: Database.Database,
+  log: Logger,
+) => Result<readonly AgentPlan[], DbError> = (
   db: Database.Database,
   log: Logger,
 ): Result<readonly AgentPlan[], DbError> => {
   log.trace("Listing all plans");
   try {
-    const stmt = db.prepare("SELECT * FROM plans");
-    const rows = stmt.all() as ReadonlyArray<Record<string, unknown>>;
+    const stmt: Database.Statement = db.prepare("SELECT * FROM plans");
+    const rows: ReadonlyArray<Record<string, unknown>> = toRows(stmt.all());
     return success(rows.map(agentPlanFromJson));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -633,16 +770,19 @@ const listPlans = (
 };
 
 /** List all messages. */
-const listAllMessages = (
+const listAllMessages: (
+  db: Database.Database,
+  log: Logger,
+) => Result<readonly Message[], DbError> = (
   db: Database.Database,
   log: Logger,
 ): Result<readonly Message[], DbError> => {
   log.trace("Listing all messages");
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "SELECT * FROM messages ORDER BY created_at DESC",
     );
-    const rows = stmt.all() as ReadonlyArray<Record<string, unknown>>;
+    const rows: ReadonlyArray<Record<string, unknown>> = toRows(stmt.all());
     return success(rows.map(messageFromJson));
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
@@ -650,19 +790,24 @@ const listAllMessages = (
 };
 
 /** Set agent active/inactive. */
-const setActive = (
+const setActive: (
+  db: Database.Database,
+  log: Logger,
+  agentName: string,
+  active: boolean,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
   agentName: string,
   active: boolean,
 ): Result<void, DbError> => {
   log.debug(`Setting agent ${agentName} active=${String(active)}`);
-  const activeInt = active ? ACTIVE_TRUE : ACTIVE_FALSE;
+  const activeInt: number = active ? ACTIVE_TRUE : ACTIVE_FALSE;
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "UPDATE identity SET active = ? WHERE agent_name = ?",
     );
-    const result = stmt.run(activeInt, agentName);
+    const result: Database.RunResult = stmt.run(activeInt, agentName);
     return result.changes === 0
       ? error({ code: ERR_NOT_FOUND, message: "Agent not found" })
       : success(undefined);
@@ -672,7 +817,10 @@ const setActive = (
 };
 
 /** Deactivate all agents. */
-const deactivateAll = (
+const deactivateAll: (
+  db: Database.Database,
+  log: Logger,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
 ): Result<void, DbError> => {
@@ -686,15 +834,19 @@ const deactivateAll = (
 };
 
 /** Admin: delete a lock by file path. */
-const adminDeleteLock = (
+const adminDeleteLock: (
+  db: Database.Database,
+  log: Logger,
+  filePath: string,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
   filePath: string,
 ): Result<void, DbError> => {
   log.warn(`Admin deleting lock on ${filePath}`);
   try {
-    const stmt = db.prepare("DELETE FROM locks WHERE file_path = ?");
-    const result = stmt.run(filePath);
+    const stmt: Database.Statement = db.prepare("DELETE FROM locks WHERE file_path = ?");
+    const result: Database.RunResult = stmt.run(filePath);
     return result.changes === 0
       ? error({ code: ERR_NOT_FOUND, message: "Lock not found" })
       : success(undefined);
@@ -704,17 +856,21 @@ const adminDeleteLock = (
 };
 
 /** Admin: delete an agent and all related data. */
-const adminDeleteAgent = (
+const adminDeleteAgent: (
+  db: Database.Database,
+  log: Logger,
+  agentName: string,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
   agentName: string,
 ): Result<void, DbError> => {
   log.warn(`Admin deleting agent ${agentName}`);
   try {
-    // Remove messages sent TO this agent (no FK cascade covers to_agent)
     db.prepare("DELETE FROM messages WHERE to_agent = ?").run(agentName);
-    // Deleting identity cascades to locks, plans, and messages where from_agent = agentName
-    const result = db.prepare("DELETE FROM identity WHERE agent_name = ?").run(agentName);
+    const result: Database.RunResult = db
+      .prepare("DELETE FROM identity WHERE agent_name = ?")
+      .run(agentName);
     return result.changes === 0
       ? error({ code: ERR_NOT_FOUND, message: "Agent not found" })
       : success(undefined);
@@ -724,16 +880,19 @@ const adminDeleteAgent = (
 };
 
 /** Admin: reset an agent's key. */
-const adminResetKey = (
+const adminResetKey: (
+  db: Database.Database,
+  log: Logger,
+  agentName: string,
+) => Result<AgentRegistration, DbError> = (
   db: Database.Database,
   log: Logger,
   agentName: string,
 ): Result<AgentRegistration, DbError> => {
   log.warn(`Admin resetting key for agent ${agentName}`);
 
-  // Release all locks held by this agent
   try {
-    const lockResult = db
+    const lockResult: Database.RunResult = db
       .prepare("DELETE FROM locks WHERE agent_name = ?")
       .run(agentName);
     if (lockResult.changes > 0) {
@@ -743,13 +902,13 @@ const adminResetKey = (
     log.warn(`Failed to release locks: ${String(e)}`);
   }
 
-  const newKey = generateKey();
-  const timestamp = now();
+  const newKey: string = generateKey();
+  const timestamp: number = now();
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "UPDATE identity SET agent_key = ?, last_active = ? WHERE agent_name = ?",
     );
-    const result = stmt.run(newKey, timestamp, agentName);
+    const result: Database.RunResult = stmt.run(newKey, timestamp, agentName);
     return result.changes === 0
       ? error({ code: ERR_NOT_FOUND, message: "Agent not found" })
       : success({ agentName, agentKey: newKey });
@@ -759,12 +918,15 @@ const adminResetKey = (
 };
 
 /** Admin: reset all transient data. */
-const adminReset = (
+const adminReset: (
+  db: Database.Database,
+  log: Logger,
+) => Result<void, DbError> = (
   db: Database.Database,
   log: Logger,
 ): Result<void, DbError> => {
   log.warn("Admin resetting transient data");
-  const statements = [
+  const statements: string[] = [
     "DELETE FROM plans",
     "DELETE FROM messages",
     "DELETE FROM locks",
@@ -781,7 +943,14 @@ const adminReset = (
 };
 
 /** Admin: send a message without auth. */
-const adminSendMessage = (
+const adminSendMessage: (
+  db: Database.Database,
+  log: Logger,
+  fromAgent: string,
+  toAgent: string,
+  content: string,
+  maxLen: number,
+) => Result<string, DbError> = (
   db: Database.Database,
   log: Logger,
   fromAgent: string,
@@ -797,10 +966,9 @@ const adminSendMessage = (
     });
   }
 
-  const timestamp = now();
-  // Ensure sender exists in identity table (FK constraint)
+  const timestamp: number = now();
   try {
-    const ensureStmt = db.prepare(
+    const ensureStmt: Database.Statement = db.prepare(
       "INSERT OR IGNORE INTO identity (agent_name, agent_key, registered_at, last_active) VALUES (?, ?, ?, ?)",
     );
     ensureStmt.run(fromAgent, generateKey(), timestamp, timestamp);
@@ -808,50 +976,161 @@ const adminSendMessage = (
     return error({ code: ERR_DATABASE, message: String(e) });
   }
 
-  const id = generateKey().substring(0, MESSAGE_ID_LENGTH);
+  const msgId: string = generateKey().substring(0, MESSAGE_ID_LENGTH);
   try {
-    const stmt = db.prepare(
+    const stmt: Database.Statement = db.prepare(
       "INSERT INTO messages (id, from_agent, to_agent, content, created_at) VALUES (?, ?, ?, ?, ?)",
     );
-    stmt.run(id, fromAgent, toAgent, content, timestamp);
-    return success(id);
+    stmt.run(msgId, fromAgent, toAgent, content, timestamp);
+    return success(msgId);
   } catch (e: unknown) {
     return error({ code: ERR_DATABASE, message: String(e) });
   }
 };
 
-/** Wire up all database operations. */
-const createDbOps = (
+/** Build agent identity operations. */
+const createAgentOps: (
   db: Database.Database,
-  config: TooManyCooksDataConfig,
   log: Logger,
-): TooManyCooksDb => {return {
-  register: async (name) => {return await Promise.resolve(register(db, log, name))},
-  authenticate: async (name, key) => {return await Promise.resolve(authenticate(db, log, name, key))},
-  lookupByKey: async (key) => {return await Promise.resolve(lookupByKey(db, log, key))},
-  listAgents: async () => {return await Promise.resolve(listAgents(db, log))},
-  acquireLock: async (filePath, name, key, reason, timeout) =>
-    {return await Promise.resolve(acquireLock(db, log, filePath, name, key, reason, timeout))},
-  releaseLock: async (filePath, name, key) => {return await Promise.resolve(releaseLock(db, log, filePath, name, key))},
-  forceReleaseLock: async (filePath, name, key) =>
-    {return await Promise.resolve(forceReleaseLock(db, log, filePath, name, key))},
-  queryLock: async (filePath) => {return await Promise.resolve(queryLock(db, log, filePath))},
-  listLocks: async () => {return await Promise.resolve(listLocks(db, log))},
-  renewLock: async (filePath, name, key, timeout) =>
-    {return await Promise.resolve(renewLock(db, log, filePath, name, key, timeout))},
-  sendMessage: async (from, key, to, content) =>
-    {return await Promise.resolve(sendMessage(db, log, from, key, to, content, config.maxMessageLength))},
-  getMessages: async (name, key, options) =>
-    {return await Promise.resolve(getMessages(db, log, name, key, options?.unreadOnly ?? true))},
-  markRead: async (id, name, key) => {return await Promise.resolve(markRead(db, log, id, name, key))},
-  updatePlan: async (name, key, goal, task) =>
-    {return await Promise.resolve(updatePlan(db, log, name, key, goal, task, config.maxPlanLength))},
-  getPlan: async (name) => {return await Promise.resolve(getPlan(db, log, name))},
-  listPlans: async () => {return await Promise.resolve(listPlans(db, log))},
-  listAllMessages: async () => {return await Promise.resolve(listAllMessages(db, log))},
-  activate: async (name) => {return await Promise.resolve(setActive(db, log, name, true))},
-  deactivate: async (name) => {return await Promise.resolve(setActive(db, log, name, false))},
-  deactivateAll: async () => {return await Promise.resolve(deactivateAll(db, log))},
+) => Pick<TooManyCooksDb, "activate" | "authenticate" | "deactivate" | "deactivateAll" | "listAgents" | "lookupByKey" | "register"> = (
+  db: Database.Database,
+  log: Logger,
+): Pick<TooManyCooksDb, "activate" | "authenticate" | "deactivate" | "deactivateAll" | "listAgents" | "lookupByKey" | "register"> => ({
+  activate: async (name: string): Promise<Result<void, DbError>> =>
+    await Promise.resolve(setActive(db, log, name, true)),
+  authenticate: async (name: string, key: string): Promise<Result<AgentIdentity, DbError>> =>
+    await Promise.resolve(authenticate(db, log, name, key)),
+  deactivate: async (name: string): Promise<Result<void, DbError>> =>
+    await Promise.resolve(setActive(db, log, name, false)),
+  deactivateAll: async (): Promise<Result<void, DbError>> =>
+    await Promise.resolve(deactivateAll(db, log)),
+  listAgents: async (): Promise<Result<readonly AgentIdentity[], DbError>> =>
+    await Promise.resolve(listAgents(db, log)),
+  lookupByKey: async (key: string): Promise<Result<string, DbError>> =>
+    await Promise.resolve(lookupByKey(db, log, key)),
+  register: async (name: string): Promise<Result<AgentRegistration, DbError>> =>
+    await Promise.resolve(register(db, log, name)),
+});
+
+/** Build lock operations. */
+const createLockOps: (
+  db: Database.Database,
+  log: Logger,
+) => Pick<TooManyCooksDb, "acquireLock" | "forceReleaseLock" | "listLocks" | "queryLock" | "releaseLock" | "renewLock"> = (
+  db: Database.Database,
+  log: Logger,
+): Pick<TooManyCooksDb, "acquireLock" | "forceReleaseLock" | "listLocks" | "queryLock" | "releaseLock" | "renewLock"> => ({
+  acquireLock: async (
+    filePath: string,
+    name: string,
+    key: string,
+    reason: string | null | undefined,
+    timeout: number,
+  ): Promise<Result<LockResult, DbError>> =>
+    await Promise.resolve(acquireLock(db, log, filePath, name, key, reason, timeout)),
+  forceReleaseLock: async (
+    filePath: string,
+    name: string,
+    key: string,
+  ): Promise<Result<void, DbError>> =>
+    await Promise.resolve(forceReleaseLock(db, log, filePath, name, key)),
+  listLocks: async (): Promise<Result<readonly FileLock[], DbError>> =>
+    await Promise.resolve(listLocks(db, log)),
+  queryLock: async (filePath: string): Promise<Result<FileLock | null, DbError>> =>
+    await Promise.resolve(queryLock(db, log, filePath)),
+  releaseLock: async (
+    filePath: string,
+    name: string,
+    key: string,
+  ): Promise<Result<void, DbError>> =>
+    await Promise.resolve(releaseLock(db, log, filePath, name, key)),
+  renewLock: async (
+    filePath: string,
+    name: string,
+    key: string,
+    timeout: number,
+  ): Promise<Result<void, DbError>> =>
+    await Promise.resolve(renewLock(db, log, filePath, name, key, timeout)),
+});
+
+/** Build message operations. */
+const createMessageOps: (
+  db: Database.Database,
+  log: Logger,
+  config: TooManyCooksDataConfig,
+) => Pick<TooManyCooksDb, "getMessages" | "listAllMessages" | "markRead" | "sendMessage"> = (
+  db: Database.Database,
+  log: Logger,
+  config: TooManyCooksDataConfig,
+): Pick<TooManyCooksDb, "getMessages" | "listAllMessages" | "markRead" | "sendMessage"> => ({
+  getMessages: async (
+    name: string,
+    key: string,
+    options?: { unreadOnly?: boolean },
+  ): Promise<Result<readonly Message[], DbError>> =>
+    await Promise.resolve(getMessages(db, log, name, key, options?.unreadOnly ?? true)),
+  listAllMessages: async (): Promise<Result<readonly Message[], DbError>> =>
+    await Promise.resolve(listAllMessages(db, log)),
+  markRead: async (msgId: string, name: string, key: string): Promise<Result<void, DbError>> =>
+    await Promise.resolve(markRead(db, log, msgId, name, key)),
+  sendMessage: async (
+    from: string,
+    key: string,
+    to: string,
+    content: string,
+  ): Promise<Result<string, DbError>> =>
+    await Promise.resolve(sendMessage(db, log, from, key, to, content, config.maxMessageLength)),
+});
+
+/** Build plan operations. */
+const createPlanOps: (
+  db: Database.Database,
+  log: Logger,
+  config: TooManyCooksDataConfig,
+) => Pick<TooManyCooksDb, "getPlan" | "listPlans" | "updatePlan"> = (
+  db: Database.Database,
+  log: Logger,
+  config: TooManyCooksDataConfig,
+): Pick<TooManyCooksDb, "getPlan" | "listPlans" | "updatePlan"> => ({
+  getPlan: async (name: string): Promise<Result<AgentPlan | null, DbError>> =>
+    await Promise.resolve(getPlan(db, log, name)),
+  listPlans: async (): Promise<Result<readonly AgentPlan[], DbError>> =>
+    await Promise.resolve(listPlans(db, log)),
+  updatePlan: async (
+    name: string,
+    key: string,
+    goal: string,
+    task: string,
+  ): Promise<Result<void, DbError>> =>
+    await Promise.resolve(updatePlan(db, log, name, key, goal, task, config.maxPlanLength)),
+});
+
+/** Build admin operations and close. */
+const createAdminOps: (
+  db: Database.Database,
+  log: Logger,
+  config: TooManyCooksDataConfig,
+) => Pick<TooManyCooksDb, "adminDeleteAgent" | "adminDeleteLock" | "adminReset" | "adminResetKey" | "adminSendMessage" | "close"> = (
+  db: Database.Database,
+  log: Logger,
+  config: TooManyCooksDataConfig,
+): Pick<TooManyCooksDb, "adminDeleteAgent" | "adminDeleteLock" | "adminReset" | "adminResetKey" | "adminSendMessage" | "close"> => ({
+  adminDeleteAgent: async (name: string): Promise<Result<void, DbError>> =>
+    await Promise.resolve(adminDeleteAgent(db, log, name)),
+  adminDeleteLock: async (filePath: string): Promise<Result<void, DbError>> =>
+    await Promise.resolve(adminDeleteLock(db, log, filePath)),
+  adminReset: async (): Promise<Result<void, DbError>> =>
+    await Promise.resolve(adminReset(db, log)),
+  adminResetKey: async (name: string): Promise<Result<AgentRegistration, DbError>> =>
+    await Promise.resolve(adminResetKey(db, log, name)),
+  adminSendMessage: async (
+    from: string,
+    to: string,
+    content: string,
+  ): Promise<Result<string, DbError>> =>
+    await Promise.resolve(
+      adminSendMessage(db, log, from, to, content, config.maxMessageLength),
+    ),
   close: async (): Promise<Result<undefined, DbError>> => {
     log.info("Closing database");
     try {
@@ -861,10 +1140,21 @@ const createDbOps = (
       return await Promise.resolve(error({ code: ERR_DATABASE, message: String(e) }));
     }
   },
-  adminDeleteLock: async (filePath) => {return await Promise.resolve(adminDeleteLock(db, log, filePath))},
-  adminDeleteAgent: async (name) => {return await Promise.resolve(adminDeleteAgent(db, log, name))},
-  adminResetKey: async (name) => {return await Promise.resolve(adminResetKey(db, log, name))},
-  adminSendMessage: async (from, to, content) =>
-    {return await Promise.resolve(adminSendMessage(db, log, from, to, content, config.maxMessageLength))},
-  adminReset: async () => {return await Promise.resolve(adminReset(db, log))},
-}};
+});
+
+/** Wire up all database operations. */
+const createDbOps: (
+  db: Database.Database,
+  config: TooManyCooksDataConfig,
+  log: Logger,
+) => TooManyCooksDb = (
+  db: Database.Database,
+  config: TooManyCooksDataConfig,
+  log: Logger,
+): TooManyCooksDb => ({
+  ...createAgentOps(db, log),
+  ...createLockOps(db, log),
+  ...createMessageOps(db, log, config),
+  ...createPlanOps(db, log, config),
+  ...createAdminOps(db, log, config),
+});

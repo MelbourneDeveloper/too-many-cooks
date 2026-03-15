@@ -12,23 +12,23 @@ const TEST_FK_DB_PATH = ".test_fk_integrity.db" as const;
 
 const deleteIfExists = (path: string): void => {
   try {
-    if (fs.existsSync(path)) fs.unlinkSync(path);
+    if (fs.existsSync(path)) { fs.unlinkSync(path); }
   } catch { /* ignore */ }
 };
 
 describe("foreign_key_integrity", () => {
-  afterEach(() => deleteIfExists(TEST_FK_DB_PATH));
+  afterEach(() => { deleteIfExists(TEST_FK_DB_PATH); });
 
   it("cascade deletes locks when agent is deleted directly", async () => {
     deleteIfExists(TEST_FK_DB_PATH);
     const config = createDataConfig({ dbPath: TEST_FK_DB_PATH });
     const result = createDb(config);
     assert.strictEqual(result.ok, true);
-    if (!result.ok) return;
+    if (!result.ok) { return; }
 
     const reg = await result.value.register("fk-test-agent");
     assert.strictEqual(reg.ok, true);
-    if (!reg.ok) return;
+    if (!reg.ok) { return; }
 
     await result.value.acquireLock("/fk/test.ts", reg.value.agentName, reg.value.agentKey, null, 60000);
     await result.value.close();
@@ -47,11 +47,11 @@ describe("foreign_key_integrity", () => {
     const config = createDataConfig({ dbPath: TEST_FK_DB_PATH });
     const result = createDb(config);
     assert.strictEqual(result.ok, true);
-    if (!result.ok) return;
+    if (!result.ok) { return; }
 
     const reg = await result.value.register("fk-plan-agent");
     assert.strictEqual(reg.ok, true);
-    if (!reg.ok) return;
+    if (!reg.ok) { return; }
 
     await result.value.updatePlan(reg.value.agentName, reg.value.agentKey, "Goal", "Task");
     await result.value.close();
@@ -70,7 +70,7 @@ describe("foreign_key_integrity", () => {
     const config = createDataConfig({ dbPath: TEST_FK_DB_PATH });
     const result = createDb(config);
     assert.strictEqual(result.ok, true);
-    if (!result.ok) return;
+    if (!result.ok) { return; }
     await result.value.close();
 
     const db = new Database(TEST_FK_DB_PATH);
@@ -81,7 +81,7 @@ describe("foreign_key_integrity", () => {
           "INSERT INTO locks (file_path, agent_name, acquired_at, expires_at) VALUES (?, ?, ?, ?)",
         ).run("/bad/file.ts", "ghost-agent", Date.now(), Date.now() + 60000);
       },
-      /FOREIGN KEY constraint failed/,
+      /FOREIGN KEY constraint failed/u,
       "Inserting a lock for a nonexistent agent must fail",
     );
     db.close();

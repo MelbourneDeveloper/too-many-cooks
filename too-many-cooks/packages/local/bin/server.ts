@@ -12,7 +12,6 @@ import net from "node:net";
 import express, { type Request, type Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
   type AdminEventHub,
   type AgentEventHub,
@@ -37,15 +36,15 @@ import {
 import { createDb } from "../src/db-sqlite.js";
 
 /** JSON-RPC bad request error response. */
-const BAD_REQUEST_JSON =
+const BAD_REQUEST_JSON: string =
   '{"jsonrpc":"2.0","error":{"code":-32000,"message":"Bad Request"},"id":null}';
 
 /** JSON-RPC session-not-found error response (404). */
-const SESSION_NOT_FOUND_JSON =
+const SESSION_NOT_FOUND_JSON: string =
   '{"jsonrpc":"2.0","error":{"code":-32001,"message":"Session not found"},"id":null}';
 
-const main = async (): Promise<void> => {
-  const log = createLogger();
+const main: () => Promise<void> = async (): Promise<void> => {
+  const log: Logger = createLogger();
   log.info("Server starting...");
   try {
     await startServer(log);
@@ -56,40 +55,48 @@ const main = async (): Promise<void> => {
 };
 
 /** Maximum time to wait for port to become free after killing a process. */
-const PORT_FREE_TIMEOUT_MS = 5000;
+const PORT_FREE_TIMEOUT_MS: number = 5000;
 
 /** Timeout for port check connection attempt (ms). */
-const PORT_CHECK_TIMEOUT_MS = 500;
+const PORT_CHECK_TIMEOUT_MS: number = 500;
 
-/** Check whether a port is in use by attempting a TCP connection. */
-const isPortInUse = (port: number): Promise<boolean> =>
-  new Promise((resolve) => {
-    const socket = net.createConnection({ port, host: "127.0.0.1" });
-    const timer = setTimeout(() => { socket.destroy(); resolve(false); }, PORT_CHECK_TIMEOUT_MS);
-    socket.once("connect", () => { clearTimeout(timer); socket.destroy(); resolve(true); });
-    socket.once("error", () => { clearTimeout(timer); resolve(false); });
+/** Delay between port-free polls in milliseconds. */
+const PORT_POLL_DELAY_MS: number = 100;
+
+/** Perform a raw TCP probe and return a Promise<boolean> (non-async to avoid require-await). */
+// eslint-disable-next-line @typescript-eslint/promise-function-async
+const tcpProbe: (port: number) => Promise<boolean> = (port: number): Promise<boolean> =>
+  new Promise((resolve: (value: boolean) => void): void => {
+    const socket: net.Socket = net.createConnection({ port, host: "127.0.0.1" });
+    const timer: NodeJS.Timeout = setTimeout((): void => { socket.destroy(); resolve(false); }, PORT_CHECK_TIMEOUT_MS);
+    socket.once("connect", (): void => { clearTimeout(timer); socket.destroy(); resolve(true); });
+    socket.once("error", (): void => { clearTimeout(timer); resolve(false); });
   });
 
+/** Check whether a port is in use by attempting a TCP connection. */
+const isPortInUse: (port: number) => Promise<boolean> = async (port: number): Promise<boolean> =>
+  await tcpProbe(port);
+
 /** Kill any existing process listening on the given port and wait for it to be freed. */
-const killExistingProcess = async (port: number, log: Logger): Promise<void> => {
-  const inUse = await isPortInUse(port);
+const killExistingProcess: (port: number, log: Logger) => Promise<void> = async (port: number, log: Logger): Promise<void> => {
+  const inUse: boolean = await isPortInUse(port);
   if (!inUse) {return;}
   log.info("Port in use, killing existing process", { port });
   try {
-    const output = execSync(`lsof -ti :${String(port)}`, { encoding: "utf8" }).trim();
+    const output: string = execSync(`lsof -ti :${String(port)}`, { encoding: "utf8" }).trim();
     if (output.length === 0) {return;}
-    const pids = output.split("\n").map((pid) => {return pid.trim()}).filter((pid) => {return pid.length > 0});
+    const pids: readonly string[] = output.split("\n").map((pid: string): string => {return pid.trim()}).filter((pid: string): boolean => {return pid.length > 0});
     for (const pid of pids) {
       log.info("Killing process", { port, pid });
       execSync(`kill -9 ${pid}`);
     }
-    const start = Date.now();
+    const start: number = Date.now();
     while (Date.now() - start < PORT_FREE_TIMEOUT_MS) {
       if (!(await isPortInUse(port))) {
         log.info("Port is now free", { port });
         return;
       }
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve: (value: undefined) => void): void => { setTimeout((): void => {resolve(undefined);}, PORT_POLL_DELAY_MS); });
     }
     log.warn("Port still in use after timeout — proceeding anyway", { port });
   } catch {
@@ -97,21 +104,21 @@ const killExistingProcess = async (port: number, log: Logger): Promise<void> => 
   }
 };
 
-const startServer = async (log: Logger): Promise<void> => {
+const startServer: (log: Logger) => Promise<void> = async (log: Logger): Promise<void> => {
   log.info("Creating server...");
 
-  const cfg = defaultConfig;
+  const cfg: typeof defaultConfig = defaultConfig;
 
-  const dbResult = createDb(cfg);
+  const dbResult: ReturnType<typeof createDb> = createDb(cfg);
   if (!dbResult.ok) {throw new Error(dbResult.error);}
-  const db = dbResult.value;
+  const db: TooManyCooksDb = dbResult.value;
   log.info("Database created.");
 
-  const transports = new Map<string, StreamableHTTPServerTransport>();
-  const agentHub = createAgentEventHub();
-  const adminHub = createAdminEventHub();
+  const transports: Map<string, StreamableHTTPServerTransport> = new Map<string, StreamableHTTPServerTransport>();
+  const agentHub: AgentEventHub = createAgentEventHub();
+  const adminHub: AdminEventHub = createAdminEventHub();
 
-  const app = express();
+  const app: ReturnType<typeof express> = express();
 
   registerAdminRoutes(app, db, adminHub);
 
@@ -126,22 +133,32 @@ const startServer = async (log: Logger): Promise<void> => {
   app.get("/mcp", asyncHandler(mcpGetDeleteHandler(transports, agentHub), log));
   app.delete("/mcp", asyncHandler(mcpGetDeleteHandler(transports, agentHub), log));
 
-  const port = getServerPort();
+  const port: number = getServerPort();
   await killExistingProcess(port, log);
-  app.listen(port, () => {
+  app.listen(port, (): void => {
     log.info("Server listening", { port });
   });
 
   // Keep event loop alive
-  const KEEP_ALIVE_INTERVAL_MS = 60000;
+  const KEEP_ALIVE_INTERVAL_MS: number = 60000;
   setInterval((): void => { /* Noop */ }, KEEP_ALIVE_INTERVAL_MS);
   await new Promise<void>((): void => { /* Noop */ });
 };
 
+/** Extract the mcp-session-id header as a string, or undefined. */
+const extractSessionId: (req: Request) => string | undefined = (req: Request): string | undefined => {
+  const raw: string[] | string | undefined = req.headers["mcp-session-id"];
+  return Array.isArray(raw) ? raw[0] : raw;
+};
+
+/** Extract the request body as unknown. */
+ 
+const extractBody: (req: Request) => unknown = (req: Request): unknown => req.body;
+
 /** Check if a parsed JSON body is an MCP initialize request. */
-const isInitializeRequest = (body: unknown): boolean => {
+const isInitializeRequest: (body: unknown) => boolean = (body: unknown): boolean => {
   if (typeof body !== "object" || body === null) {return false;}
-  const {method} = (body as Record<string, unknown>);
+  const method: unknown = "method" in body ? body.method : undefined;
   return method === "initialize";
 };
 
@@ -156,12 +173,15 @@ type McpSessionContext = {
 };
 
 /** Wire up transport close handler for agent sessions. */
-const wireAgentTransportClose = (
+const wireAgentTransportClose: (
+  transport: StreamableHTTPServerTransport,
+  ctx: McpSessionContext,
+) => void = (
   transport: StreamableHTTPServerTransport,
   ctx: McpSessionContext,
 ): void => {
   transport.onclose = (): void => {
-    const sid = transport.sessionId;
+    const sid: string | undefined = transport.sessionId;
     if (sid !== undefined) {
       ctx.log.info("Session closed", { sessionId: sid });
       ctx.transports.delete(sid);
@@ -173,13 +193,17 @@ const wireAgentTransportClose = (
 };
 
 /** Initialize an MCP agent session (POST /mcp with initialize body). */
-const initializeMcpSession = async (
+const initializeMcpSession: (
+  req: Request,
+  res: Response,
+  ctx: McpSessionContext,
+) => Promise<void> = async (
   req: Request,
   res: Response,
   ctx: McpSessionContext,
 ): Promise<void> => {
-  const { body } = req as { body: unknown };
-  const transport = new StreamableHTTPServerTransport({
+  const body: unknown = extractBody(req);
+  const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
     sessionIdGenerator: (): string => {return crypto.randomUUID()},
     onsessioninitialized: (sid: string): void => {
       ctx.log.info("Session init", { sessionId: sid });
@@ -189,38 +213,40 @@ const initializeMcpSession = async (
 
   wireAgentTransportClose(transport, ctx);
 
-  const serverResult = createMcpServerForDb(ctx.db, ctx.cfg, ctx.log, {
+  const serverResult: ReturnType<typeof createMcpServerForDb> = createMcpServerForDb(ctx.db, ctx.cfg, ctx.log, {
     adminPush: ctx.adminHub.pushEvent,
     agentPush: ctx.agentHub.pushEvent,
     agentPushToAgent: ctx.agentHub.pushToAgent,
     onSessionSet: (agentName: string): void => {
-      const sid = transport.sessionId;
+      const sid: string | undefined = transport.sessionId;
       if (sid !== undefined) {
         ctx.agentHub.sessionAgentNames.set(sid, agentName);
       }
     },
   });
   if (!serverResult.ok) {throw new Error(serverResult.error);}
-  const server = serverResult.value;
-  await server.connect(transport as unknown as Transport);
+  const server: McpServer = serverResult.value;
+  await server.connect(transport);
   await transport.handleRequest(req, res, body);
 
-  const sid = transport.sessionId;
+  const sid: string | undefined = transport.sessionId;
   if (sid !== undefined) {
     ctx.agentHub.servers.set(sid, server);
   }
 };
 
 /** POST /mcp handler. */
-const mcpPostHandler = (
+const mcpPostHandler: (
+  ctx: McpSessionContext,
+) => (req: Request, res: Response) => Promise<void> = (
   ctx: McpSessionContext,
 ): ((req: Request, res: Response) => Promise<void>) =>
   {return async (req: Request, res: Response): Promise<void> => {
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
-    const { body } = req as { body: unknown };
+    const sessionId: string | undefined = extractSessionId(req);
+    const body: unknown = extractBody(req);
 
     if (sessionId !== undefined && ctx.transports.has(sessionId)) {
-      const existing = ctx.transports.get(sessionId);
+      const existing: StreamableHTTPServerTransport | undefined = ctx.transports.get(sessionId);
       if (existing !== undefined) {
         await existing.handleRequest(req, res, body);
       }
@@ -241,17 +267,20 @@ const mcpPostHandler = (
   }};
 
 /** GET/DELETE /mcp handler. */
-const mcpGetDeleteHandler = (
+const mcpGetDeleteHandler: (
+  transports: Map<string, StreamableHTTPServerTransport>,
+  agentHub: AgentEventHub,
+) => (req: Request, res: Response) => Promise<void> = (
   transports: Map<string, StreamableHTTPServerTransport>,
   agentHub: AgentEventHub,
 ): ((req: Request, res: Response) => Promise<void>) =>
   {return async (req: Request, res: Response): Promise<void> => {
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    const sessionId: string | undefined = extractSessionId(req);
     if (sessionId === undefined) {
       res.status(400).send("Missing session ID");
       return;
     }
-    const transport = transports.get(sessionId);
+    const transport: StreamableHTTPServerTransport | undefined = transports.get(sessionId);
     if (transport === undefined) {
       res.status(404).send(SESSION_NOT_FOUND_JSON);
       return;
@@ -261,14 +290,19 @@ const mcpGetDeleteHandler = (
   }};
 
 /** Initialize an admin session (POST /admin/events with initialize body). */
-const initializeAdminSession = async (
+const initializeAdminSession: (
+  req: Request,
+  res: Response,
+  hub: AdminEventHub,
+  log: Logger,
+) => Promise<void> = async (
   req: Request,
   res: Response,
   hub: AdminEventHub,
   log: Logger,
 ): Promise<void> => {
-  const { body } = req as { body: unknown };
-  const transport = new StreamableHTTPServerTransport({
+  const body: unknown = extractBody(req);
+  const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
     sessionIdGenerator: (): string => {return crypto.randomUUID()},
     onsessioninitialized: (sid: string): void => {
       log.info("Admin session init", { sessionId: sid });
@@ -277,7 +311,7 @@ const initializeAdminSession = async (
   });
 
   transport.onclose = (): void => {
-    const sid = transport.sessionId;
+    const sid: string | undefined = transport.sessionId;
     if (sid !== undefined) {
       log.info("Admin session closed", { sessionId: sid });
       hub.transports.delete(sid);
@@ -285,30 +319,33 @@ const initializeAdminSession = async (
     }
   };
 
-  const server = new McpServer(
+  const server: McpServer = new McpServer(
     { name: "too-many-cooks", version: "0.1.0" },
     { capabilities: { logging: {} } },
   );
-  await server.connect(transport as unknown as Transport);
+  await server.connect(transport);
   await transport.handleRequest(req, res, body);
 
-  const sid = transport.sessionId;
+  const sid: string | undefined = transport.sessionId;
   if (sid !== undefined) {
     hub.servers.set(sid, server);
   }
 };
 
 /** POST /admin/events handler. */
-const adminPostHandler = (
+const adminPostHandler: (
+  hub: AdminEventHub,
+  log: Logger,
+) => (req: Request, res: Response) => Promise<void> = (
   hub: AdminEventHub,
   log: Logger,
 ): ((req: Request, res: Response) => Promise<void>) =>
   {return async (req: Request, res: Response): Promise<void> => {
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
-    const { body } = req as { body: unknown };
+    const sessionId: string | undefined = extractSessionId(req);
+    const body: unknown = extractBody(req);
 
     if (sessionId !== undefined && hub.transports.has(sessionId)) {
-      const existing = hub.transports.get(sessionId);
+      const existing: StreamableHTTPServerTransport | undefined = hub.transports.get(sessionId);
       if (existing !== undefined) {
         await existing.handleRequest(req, res, body);
       }
@@ -329,16 +366,18 @@ const adminPostHandler = (
   }};
 
 /** GET/DELETE /admin/events handler. */
-const adminGetDeleteHandler = (
+const adminGetDeleteHandler: (
+  hub: AdminEventHub,
+) => (req: Request, res: Response) => Promise<void> = (
   hub: AdminEventHub,
 ): ((req: Request, res: Response) => Promise<void>) =>
   {return async (req: Request, res: Response): Promise<void> => {
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    const sessionId: string | undefined = extractSessionId(req);
     if (sessionId === undefined) {
       res.status(400).send("Missing session ID");
       return;
     }
-    const transport = hub.transports.get(sessionId);
+    const transport: StreamableHTTPServerTransport | undefined = hub.transports.get(sessionId);
     if (transport === undefined) {
       res.status(404).send(SESSION_NOT_FOUND_JSON);
       return;
@@ -347,7 +386,10 @@ const adminGetDeleteHandler = (
   }};
 
 /** Wrap an async handler for Express. */
-const asyncHandler = (
+const asyncHandler: (
+  fn: (req: Request, res: Response) => Promise<void>,
+  log: Logger,
+) => (req: Request, res: Response) => void = (
   fn: (req: Request, res: Response) => Promise<void>,
   log: Logger,
 ): ((req: Request, res: Response) => void) =>
@@ -357,20 +399,20 @@ const asyncHandler = (
     });
   }};
 
-const resolveLogFilePath = (): string => {
-  const logsDir = pathJoin([getWorkspaceFolder(), "logs"]);
+const resolveLogFilePath: () => string = (): string => {
+  const logsDir: string = pathJoin([getWorkspaceFolder(), "logs"]);
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
   }
-  const timestamp = new Date()
+  const timestamp: string = new Date()
     .toISOString()
     .replaceAll(":", "-")
     .replaceAll(".", "-");
   return pathJoin([logsDir, `mcp-server-${timestamp}.log`]);
 };
 
-const createLogger = (): Logger => {
-  const logFilePath = resolveLogFilePath();
+const createLogger: () => Logger = (): Logger => {
+  const logFilePath: string = resolveLogFilePath();
   return createLoggerWithContext(
     createLoggingContext({
       transports: [
@@ -382,25 +424,25 @@ const createLogger = (): Logger => {
   );
 };
 
-const formatLogLine = (message: LogMessage): string => {
-  const level = logLevelName(message.logLevel);
-  const data = message.structuredData;
-  const dataStr =
+const formatLogLine: (message: LogMessage) => string = (message: LogMessage): string => {
+  const level: string = logLevelName(message.logLevel);
+  const data: typeof message.structuredData = message.structuredData;
+  const dataStr: string =
     data !== undefined && Object.keys(data).length > 0
       ? ` ${JSON.stringify(data)}`
       : "";
   return `[TMC] [${message.timestamp.toISOString()}] [${level}] ${message.message}${dataStr}\n`;
 };
 
-const createConsoleTransport =
-  () =>
+const createConsoleTransport: () => (message: LogMessage, minimumLogLevel: LogLevel) => void =
+  (): ((message: LogMessage, minimumLogLevel: LogLevel) => void) =>
   {return (message: LogMessage, minimumLogLevel: LogLevel): void => {
     if (message.logLevel < minimumLogLevel) {return;}
     console.error(formatLogLine(message).trimEnd());
   }};
 
-const createFileTransport =
-  (filePath: string) =>
+const createFileTransport: (filePath: string) => (message: LogMessage, minimumLogLevel: LogLevel) => void =
+  (filePath: string): ((message: LogMessage, minimumLogLevel: LogLevel) => void) =>
   {return (message: LogMessage, minimumLogLevel: LogLevel): void => {
     if (message.logLevel < minimumLogLevel) {return;}
     fs.appendFileSync(filePath, formatLogLine(message));

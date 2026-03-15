@@ -116,13 +116,15 @@ export const lockResultToJson: (
   ...(lockResult.error === undefined ? {} : { error: lockResult.error }),
 }};
 
+/** Type guard for a plain object record. */
+const isRecord: (value: unknown) => value is Record<string, unknown> = (
+  value: unknown,
+): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 /** Helper to narrow lock JSON field. */
-const narrowLockJson = (value: unknown): Record<string, unknown> | null => {
-  if (typeof value === "object" && value !== null) {
-    return value as never;
-  }
-  return null;
-};
+const narrowLockJson: (value: unknown) => Record<string, unknown> | null = (value: unknown): Record<string, unknown> | null =>
+  isRecord(value) ? value : null;
 
 /** Deserialize LockResult from a JSON map. */
 export const lockResultFromJson: (
@@ -133,9 +135,9 @@ export const lockResultFromJson: (
   const lockJson: Record<string, unknown> | null = narrowLockJson(json.lock);
   return {
     acquired: typeof json.acquired === "boolean" ? json.acquired : false,
-    lock: lockJson !== null
-      ? fileLockFromJson(lockJson)
-      : undefined,
+    lock: lockJson === null
+      ? undefined
+      : fileLockFromJson(lockJson),
     error: typeof json.error === "string" ? json.error : undefined,
   };
 };

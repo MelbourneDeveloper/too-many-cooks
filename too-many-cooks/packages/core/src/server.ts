@@ -25,16 +25,16 @@ import { createMessageHandler, MESSAGE_TOOL_CONFIG as messageToolConfig } from "
 import { createPlanHandler, PLAN_TOOL_CONFIG as planToolConfig } from "./tools/plan_tool.js";
 import { createRegisterHandler, REGISTER_TOOL_CONFIG as registerToolConfig } from "./tools/register_tool.js";
 import { createStatusHandler, STATUS_TOOL_CONFIG as statusToolConfig } from "./tools/status_tool.js";
-import type { SessionIdentity } from "./mcp-types.js";
+import type { CallToolResult, SessionIdentity, ToolCallback } from "./mcp-types.js";
 
 /** Server name constant. */
-const SERVER_NAME = "too-many-cooks";
+const SERVER_NAME: string = "too-many-cooks";
 
 /** Server version constant. */
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION: string = "0.1.0";
 
 /** Log prefix for console output. */
-const LOG_PREFIX = "[TMC]";
+const LOG_PREFIX: string = "[TMC]";
 
 /** Result of creating the server - includes both MCP server and DB. */
 export type ServerBundle = {
@@ -43,7 +43,17 @@ export type ServerBundle = {
 };
 
 /** Create an MCP server instance wired to a shared DB (any backend). */
-export const createMcpServerForDb = (
+export const createMcpServerForDb: (
+  db: TooManyCooksDb,
+  config: TooManyCooksDataConfig,
+  log: Logger,
+  options?: {
+    adminPush?: EventPushFn;
+    agentPush?: EventPushFn;
+    agentPushToAgent?: EventPushToAgentFn;
+    onSessionSet?: (agentName: string, agentKey: string) => void;
+  },
+) => Result<McpServer, string> = (
   db: TooManyCooksDb,
   config: TooManyCooksDataConfig,
   log: Logger,
@@ -54,17 +64,17 @@ export const createMcpServerForDb = (
     onSessionSet?: (agentName: string, agentKey: string) => void;
   },
 ): Result<McpServer, string> => {
-  const adminPush = options?.adminPush;
-  const agentPush = options?.agentPush;
-  const agentPushToAgent = options?.agentPushToAgent;
-  const onSessionSet = options?.onSessionSet;
-  const server = new McpServer(
+  const adminPush: EventPushFn | undefined = options?.adminPush;
+  const agentPush: EventPushFn | undefined = options?.agentPush;
+  const agentPushToAgent: EventPushToAgentFn | undefined = options?.agentPushToAgent;
+  const onSessionSet: ((agentName: string, agentKey: string) => void) | undefined = options?.onSessionSet;
+  const server: McpServer = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     { capabilities: { tools: { listChanged: true }, logging: {} } },
   );
   log.debug("MCP server created");
 
-  const emitter = createNotificationEmitter(
+  const emitter: ReturnType<typeof createNotificationEmitter> = createNotificationEmitter(
     server,
     adminPush,
     agentPush,
@@ -73,8 +83,8 @@ export const createMcpServerForDb = (
 
   // Per-connection session state
   let session: SessionIdentity | null = null;
-  const getSession = (): SessionIdentity | null => {return session};
-  const setSession = (name: string, key: string): void => {
+  const getSession: () => SessionIdentity | null = (): SessionIdentity | null => {return session};
+  const setSession: (name: string, key: string) => void = (name: string, key: string): void => {
     session = { agentName: name, agentKey: key };
     onSessionSet?.(name, key);
     log.info(`Session established for agent: ${name}`);
@@ -87,7 +97,7 @@ export const createMcpServerForDb = (
 };
 
 /** Zod schema for register tool input. */
-const registerZodSchema = {
+const registerZodSchema: z.ZodRawShape = {
   name: z.string().optional().describe(
     "Your unique agent name, 1-50 chars. For FIRST registration only. Do NOT send with key.",
   ),
@@ -97,7 +107,7 @@ const registerZodSchema = {
 };
 
 /** Zod schema for lock tool input. */
-const lockZodSchema = {
+const lockZodSchema: z.ZodRawShape = {
   action: z.enum(["acquire", "release", "force_release", "renew", "query", "list"])
     .describe("Lock action to perform"),
   file_path: z.string().optional()
@@ -109,7 +119,7 @@ const lockZodSchema = {
 };
 
 /** Zod schema for message tool input. */
-const messageZodSchema = {
+const messageZodSchema: z.ZodRawShape = {
   action: z.enum(["send", "get", "mark_read"])
     .describe("Message action to perform"),
   to_agent: z.string().optional()
@@ -125,7 +135,7 @@ const messageZodSchema = {
 };
 
 /** Zod schema for plan tool input. */
-const planZodSchema = {
+const planZodSchema: z.ZodRawShape = {
   action: z.enum(["update", "get", "list"])
     .describe("Plan action to perform"),
   goal: z.string().max(100).optional()
@@ -137,10 +147,29 @@ const planZodSchema = {
 };
 
 /** Zod schema for status tool input (empty). */
-const statusZodSchema = {};
+const statusZodSchema: z.ZodRawShape = {};
+
+/**
+ * Wrap a local ToolCallback so it satisfies the MCP SDK's typed callback
+ * signature without using type assertions.
+ */
+const wrapHandler: (handler: ToolCallback) => (args: Record<string, unknown>, extra: unknown) => Promise<CallToolResult> = (
+  handler: ToolCallback,
+): (args: Record<string, unknown>, extra: unknown) => Promise<CallToolResult> =>
+  async (args: Record<string, unknown>, extra: unknown): Promise<CallToolResult> => {
+    return await handler(args, extra);
+  };
 
 /** Register all tools on the MCP server. */
-const registerTools = (
+const registerTools: (
+  server: McpServer,
+  db: TooManyCooksDb,
+  config: TooManyCooksDataConfig,
+  emitter: ReturnType<typeof createNotificationEmitter>,
+  log: Logger,
+  getSession: () => SessionIdentity | null,
+  setSession: (name: string, key: string) => void,
+) => void = (
   server: McpServer,
   db: TooManyCooksDb,
   config: TooManyCooksDataConfig,
@@ -149,37 +178,35 @@ const registerTools = (
   getSession: () => SessionIdentity | null,
   setSession: (name: string, key: string) => void,
 ): void => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP SDK handler type mismatch
-  type AnyHandler = (...args: any[]) => any;
   server.registerTool(
     "register",
     { description: registerToolConfig.description, inputSchema: registerZodSchema },
-    createRegisterHandler(db, emitter, log, setSession) as AnyHandler,
+    wrapHandler(createRegisterHandler(db, emitter, log, setSession)),
   );
   server.registerTool(
     "lock",
     { description: lockToolConfig.description, inputSchema: lockZodSchema },
-    createLockHandler(db, config, emitter, log, getSession) as AnyHandler,
+    wrapHandler(createLockHandler(db, config, emitter, log, getSession)),
   );
   server.registerTool(
     "message",
     { description: messageToolConfig.description, inputSchema: messageZodSchema },
-    createMessageHandler(db, emitter, log, getSession) as AnyHandler,
+    wrapHandler(createMessageHandler(db, emitter, log, getSession)),
   );
   server.registerTool(
     "plan",
     { description: planToolConfig.description, inputSchema: planZodSchema },
-    createPlanHandler(db, emitter, log, getSession) as AnyHandler,
+    wrapHandler(createPlanHandler(db, emitter, log, getSession)),
   );
   server.registerTool(
     "status",
     { description: statusToolConfig.description, inputSchema: statusZodSchema },
-    createStatusHandler(db, log) as AnyHandler,
+    wrapHandler(createStatusHandler(db, log)),
   );
 };
 
 /** Creates a logger that writes to console.error. */
-export const createConsoleLogger = (): Logger =>
+export const createConsoleLogger: () => Logger = (): Logger =>
   {return createLoggerWithContext(
     createLoggingContext({
       transports: [logTransport(logToConsole)],
@@ -188,14 +215,14 @@ export const createConsoleLogger = (): Logger =>
   )};
 
 /** Log transport that writes to console.error. */
-const logToConsole = (
+const logToConsole: (message: LogMessage, minimumLogLevel: LogLevel) => void = (
   message: LogMessage,
   minimumLogLevel: LogLevel,
 ): void => {
   if (message.logLevel < minimumLogLevel) {return;}
-  const level = logLevelName(message.logLevel);
-  const data = message.structuredData;
-  const dataStr =
+  const level: string = logLevelName(message.logLevel);
+  const data: Record<string, unknown> | undefined = message.structuredData;
+  const dataStr: string =
     data !== undefined && Object.keys(data).length > 0
       ? ` ${JSON.stringify(data)}`
       : "";

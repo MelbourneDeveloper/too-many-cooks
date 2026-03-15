@@ -58,6 +58,7 @@ export default tseslint.config(
       "packages/**/build/**",
       "packages/**/coverage/**",
       "packages/**/node_modules/**",
+      "packages/local/prisma.config.ts",
     ],
   },
 );

@@ -20,7 +20,7 @@ import type { TooManyCooksDataConfig } from "@too-many-cooks/core";
 export type TooManyCooksConfig = TooManyCooksDataConfig;
 
 /** Server entry point relative path. */
-export const SERVER_BINARY = "bin/server.ts";
+export const SERVER_BINARY: string = "bin/server.ts";
 
 /** Node args needed to run the server (tsx loader for TypeScript). */
-export const SERVER_NODE_ARGS = ["--import", "tsx"] as const;
+export const SERVER_NODE_ARGS: readonly string[] = ["--import", "tsx"] as const;
