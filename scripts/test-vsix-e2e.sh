@@ -5,6 +5,7 @@ ROOT="$(cd "$SCRIPTS/.." && pwd)"
 MCP_DIR="$ROOT/too-many-cooks"
 VSIX_DIR="$ROOT/too_many_cooks_vscode_extension"
 PORT=4040
+TEST_WORKSPACE="$ROOT/.test-vsix-workspace"
 
 # Kill any existing server on the port
 kill_port() {
@@ -30,14 +31,19 @@ npm install
 npm run compile
 npm run compile:test
 
-# 3. Start MCP server
-cleanup_mcp() { [ -n "${MCP_PID:-}" ] && kill "$MCP_PID" 2>/dev/null || true; }
+# 3. Start MCP server with isolated test workspace (never touches the real data.db)
+cleanup_mcp() {
+  [ -n "${MCP_PID:-}" ] && kill "$MCP_PID" 2>/dev/null || true
+  rm -rf "$TEST_WORKSPACE"
+}
 trap cleanup_mcp EXIT
 
 kill_port
+rm -rf "$TEST_WORKSPACE"
+mkdir -p "$TEST_WORKSPACE"
 
 cd "$MCP_DIR"
-node build/bin/server.js &
+TMC_WORKSPACE="$TEST_WORKSPACE" node packages/local/build/bin/server.js &
 MCP_PID=$!
 
 # Poll until server is ready (max 10s)

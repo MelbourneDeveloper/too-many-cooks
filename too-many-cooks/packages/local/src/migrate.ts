@@ -53,10 +53,21 @@ const recordMigration = (db: Database.Database, name: string, sql: string): void
   ).run(randomUUID(), checksum(sql), name);
 };
 
-/** True if the identity table already exists (pre-Prisma database). */
-const hasPrePrismaSchema = (db: Database.Database): boolean =>
-  db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='identity'").get() !== undefined &&
-  db.prepare("SELECT 1 FROM _prisma_migrations LIMIT 1").get() === undefined;
+/** True if the identity table already exists but no current migrations are recorded.
+ *  Handles both pre-Prisma databases and databases where migrations were renamed. */
+const hasPrePrismaSchema = (db: Database.Database, migrations: readonly string[]): boolean => {
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='identity'").get() === undefined) {
+    return false;
+  }
+  if (db.prepare("SELECT 1 FROM _prisma_migrations LIMIT 1").get() === undefined) {
+    return true;
+  }
+  // If none of the current migration names are recorded, the schema was created
+  // by an older or renamed migration — treat as pre-Prisma and baseline.
+  return migrations.every(
+    (name) => db.prepare("SELECT 1 FROM _prisma_migrations WHERE migration_name = ?").get(name) === undefined,
+  );
+};
 
 /** Baseline an existing pre-Prisma database by recording all migrations as applied. */
 const baselineMigrations = (db: Database.Database, dir: string, names: readonly string[]): void => {
@@ -73,7 +84,7 @@ export const applyMigrations = (db: Database.Database): void => {
   const migrations = readdirSync(dir)
     .filter((d) => existsSync(join(dir, d, "migration.sql")))
     .sort();
-  if (hasPrePrismaSchema(db)) { baselineMigrations(db, dir, migrations); return; }
+  if (hasPrePrismaSchema(db, migrations)) { baselineMigrations(db, dir, migrations); return; }
   for (const name of migrations) {
     if (isApplied(db, name)) continue;
     const sql = readFileSync(join(dir, name, "migration.sql"), "utf-8");
