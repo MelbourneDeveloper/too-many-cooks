@@ -1,5 +1,5 @@
 {
-  "name": "@too-many-cooks/local",
+  "name": "too-many-cooks",
   "version": "0.5.0",
   "description": "Too Many Cooks MCP server — SQLite (local) or encrypted cloud backend",
   "type": "module",
