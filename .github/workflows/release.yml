@@ -55,12 +55,7 @@ jobs:
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           cd ../too-many-cooks
           npm version "$VERSION" --no-git-tag-version --allow-same-version
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.dependencies['too-many-cooks-core'] = '^$VERSION';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
+          sed -i "s/\"too-many-cooks-core\": \"\\*\"/\"too-many-cooks-core\": \"^$VERSION\"/" package.json
 
       - name: Pack core tarball
         working-directory: too-many-cooks/packages/core

@@ -128,7 +128,8 @@ export class StoreManager {
     if (!this.isConnected) { throw new Error('Not connected'); }
     // Monotonic counter: discard results from requests that started before a newer one.
     // This prevents a slow SSE-triggered refresh from overwriting a fresher result.
-    const seq: number = ++this.refreshSeq;
+    this.refreshSeq += 1;
+    const seq: number = this.refreshSeq;
     const response: Response = await fetch(`${this.baseUrl}/admin/status`);
     if (seq !== this.refreshSeq) { return; }
     if (!response.ok) {
