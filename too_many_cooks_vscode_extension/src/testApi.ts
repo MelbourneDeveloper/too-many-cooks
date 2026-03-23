@@ -56,6 +56,7 @@ export interface TestAPI {
   readonly isConnecting: () => boolean;
   readonly refreshStatus: () => Promise<void>;
   readonly sendMessage: (fromAgent: string, toAgent: string, content: string) => Promise<void>;
+  readonly getStoreManager: () => StoreManager;
 }
 
 // eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types
@@ -276,5 +277,6 @@ export function createTestAPI(config: TestAPIConfig): TestAPI {
     ...createAsyncMethods(storeManager),
     ...createTreeMethods(agentsProvider, locksProvider, messagesProvider),
     ...createStateMethods({ locksProvider, logMessages, messagesProvider, storeManager }),
+    getStoreManager: (): StoreManager => storeManager,
   } satisfies TestAPI;
 }
